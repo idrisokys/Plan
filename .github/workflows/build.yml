@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14   # Apple Silicon, Xcode 15+ (Swift 5.9 ile uyumlu)
+    runs-on: macos-15   # Apple Silicon, Xcode 15+ (Swift 5.9 ile uyumlu)
     steps:
       - name: Kodu çek
         uses: actions/checkout@v4

@@ -29,7 +29,7 @@ extension NotesModel {
         reload { HUD.show(L("Yenilendi", "Refreshed")) }
     }
 
-    /// notlarim://search?q=… (eski linkcepte://search?q=… da çalışır) : klasör yığınını sıfırlar ve aramayı doğrudan gösterir (Android'deki "Notlarımda ara" ile aynı).
+    /// plan://search?q=… : klasör yığınını sıfırlar ve aramayı doğrudan gösterir (Android'deki "Notlarımda ara" ile aynı).
     func externalSearch(_ q: String) {
         let t = q.trimmed
         guard !t.isEmpty else { return }

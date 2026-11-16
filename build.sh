@@ -1,19 +1,19 @@
 #!/bin/bash
 # Kullanım: Terminal'de bu klasörde  ./build.sh   (Xcode veya Command Line Tools gerekir)
-# Çıktı: NotMenu.app ve NotMenu-macOS.zip  (Notlarım dahil: tek uygulama)
+# Çıktı: Plan.app ve Plan-macOS.zip  (Notlarım dahil: tek uygulama)
 set -euo pipefail
 cd "$(dirname "$0")"
 source version.env
 
-APP=NotMenu.app
+APP=Plan.app
 PLISTBUDDY=/usr/libexec/PlistBuddy
 
 # Evrensel (Apple Silicon + Intel) derleme
 swift build -c release --arch arm64 --arch x86_64
-BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/NotMenu"
+BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/Plan"
 
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/NotMenu"
+cp "$BIN" "$APP/Contents/MacOS/Plan"
 cp Info.plist "$APP/Contents/Info.plist"
 "$PLISTBUDDY" -c "Set :CFBundleShortVersionString $MARKETING_VERSION" "$APP/Contents/Info.plist"
 "$PLISTBUDDY" -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
@@ -48,5 +48,5 @@ find "$APP/Contents/Resources/chrome-extension" -name '.DS_Store' -delete
 # Geçici (ad-hoc) imza: --deep yok, Paylaş eklentisinin kendi imzası korunur
 codesign --force --sign - "$APP"
 
-ditto -c -k --sequesterRsrc --keepParent "$APP" NotMenu-macOS.zip
+ditto -c -k --sequesterRsrc --keepParent "$APP" Plan-macOS.zip
 echo "Hazır: $APP  →  Uygulamalar klasörüne sürükle ve aç."

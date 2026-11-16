@@ -1,6 +1,5 @@
 import Foundation
 import Network
-import UserNotifications
 
 /// Android'deki Hızlı Paylaş ile aynı protokol:
 ///  - mDNS: `_qshare._tcp`, servis adı "QS"+kimlik[0..10], TXT: n=cihaz adı, i=kimlik
@@ -12,10 +11,27 @@ struct QSDevice: Identifiable, Hashable {
     let endpoint: NWEndpoint
 }
 
+/// Paylaşım ekranındaki bilgi satırı (bildirim yok; yalnızca panelde gösterilir).
+struct QSInfo: Equatable {
+    enum Kind { case sending, sent, receiving, received, failed }
+    var kind: Kind
+    var text: String
+    var icon: String {
+        switch kind {
+        case .sending: return "arrow.up.circle"
+        case .sent: return "checkmark.circle"
+        case .receiving: return "arrow.down.circle"
+        case .received: return "arrow.down.circle.fill"
+        case .failed: return "exclamationmark.triangle"
+        }
+    }
+}
+
 final class QuickShare: ObservableObject {
     static let shared = QuickShare()
     @Published var running = false
     @Published var message = ""
+    @Published var info: QSInfo?        // son gönderme / alma durumu (paylaşım ekranında tek satır)
     @Published var devices: [QSDevice] = []
     @Published var sendingTo = Set<String>()
 
@@ -38,7 +54,7 @@ final class QuickShare: ObservableObject {
 
     func start() {
         guard listener == nil else { return }
-        guard let l = try? NWListener(using: .tcp) else { post("Paylaşım açılamadı"); return }
+        guard let l = try? NWListener(using: .tcp) else { DispatchQueue.main.async { self.message = "Paylaşım açılamadı" }; return }
         let id = Self.identity
         let name = Host.current().localizedName ?? "Mac"
         l.service = NWListener.Service(name: "QS" + String(id.prefix(10)), type: "_qshare._tcp",
@@ -60,7 +76,6 @@ final class QuickShare: ObservableObject {
         l.start(queue: .global(qos: .userInitiated))
         listener = l
         UserDefaults.standard.set(true, forKey: "qsOn")
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
         startBrowsing()
     }
 
@@ -69,6 +84,7 @@ final class QuickShare: ObservableObject {
         UserDefaults.standard.set(false, forKey: "qsOn")
         browser?.cancel(); browser = nil
         devices = []
+        info = nil
     }
 
     // MARK: Açık cihazları bul (aynı ağda _qshare._tcp yayınlayanlar)
@@ -98,15 +114,19 @@ final class QuickShare: ObservableObject {
     // MARK: Dosya gönder (alıcı tarafın beklediği: POST /u + X-Name + Content-Length)
     func send(_ files: [URL], to d: QSDevice) {
         guard !files.isEmpty else { return }
-        DispatchQueue.main.async { self.sendingTo.insert(d.id) }
+        let first = files[0].lastPathComponent
+        DispatchQueue.main.async {
+            self.sendingTo.insert(d.id)
+            self.info = QSInfo(kind: .sending, text: files.count == 1 ? "Gönderiliyor: \(first)" : "Gönderiliyor: \(files.count) dosya → \(d.name)")
+        }
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             var okCount = 0
             for f in files { if Self.sendOne(f, to: d.endpoint) { okCount += 1 } }
             DispatchQueue.main.async { self.sendingTo.remove(d.id) }
             if okCount == files.count {
-                post(files.count == 1 ? "Gönderildi: \(files[0].lastPathComponent)" : "\(okCount) dosya gönderildi → \(d.name)")
+                post(.sent, files.count == 1 ? "Gönderildi: \(first) → \(d.name)" : "\(okCount) dosya gönderildi → \(d.name)")
             } else {
-                post("Gönderilemedi (\(files.count - okCount) dosya) → \(d.name)")
+                post(.failed, "Gönderilemedi (\(files.count - okCount) dosya) → \(d.name)")
             }
         }
     }
@@ -162,12 +182,12 @@ final class QuickShare: ObservableObject {
 
     fileprivate func remove(_ h: ConnHandler) { DispatchQueue.main.async { self.conns.remove(h) } }
 
-    fileprivate func received(_ name: String) { post("Dosya alındı: \(name)") }
+    fileprivate func receiving(_ name: String) { post(.receiving, "Alınıyor: \(name)") }
+    fileprivate func received(_ name: String) { post(.received, "Alındı: \(name)") }
 
-    func post(_ s: String) {
-        DispatchQueue.main.async { self.message = s }
-        let c = UNMutableNotificationContent(); c.title = "Hızlı Paylaş"; c.body = s
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: c, trigger: nil))
+    /// Bildirim göndermez; bilgi yalnızca paylaşım ekranındaki satırda görünür.
+    func post(_ kind: QSInfo.Kind, _ s: String) {
+        DispatchQueue.main.async { self.info = QSInfo(kind: kind, text: s) }
     }
 }
 
@@ -226,6 +246,7 @@ private final class ConnHandler: Hashable {
             reply("500 Error"); return
         }
         part = p; fh = h; left = len; headerDone = true; buf = Data()
+        owner?.receiving(name)
         if left == 0 { complete() } else if !rest.isEmpty { write(rest) }
     }
 
@@ -244,7 +265,7 @@ private final class ConnHandler: Hashable {
             do { try FileManager.default.moveItem(at: p, to: dest); name = dest.lastPathComponent } catch { ok = false }
         }
         if !ok, let p = part { try? FileManager.default.removeItem(at: p) }
-        if ok { owner?.received(name) } else { owner?.post("Alma yarım kaldı") }
+        if ok { owner?.received(name) } else { owner?.post(.failed, "Alma yarım kaldı: \(name)") }
         reply(ok ? "200 OK" : "500 Error")
     }
 

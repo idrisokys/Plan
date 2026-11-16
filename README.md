@@ -1,9 +1,9 @@
-# NotMenu — macOS menü çubuğu: arama + not ekleme + paylaşım + Notlarım
+# Plan — macOS menü çubuğu: arama + not ekleme + paylaşım + Notlarım
 
 Tek uygulama, iki parça:
 
-1. **Menü çubuğu paneli** (NotMenu): arama, hızlı not/link ekleme, Hızlı Paylaş.
-2. **Notlarım** (eski adıyla *Link Cepte*): notlar ve linkler için tam pencere. Artık ayrı bir uygulama değil; panelin
+1. **Menü çubuğu paneli** (Plan): arama, hızlı not/link ekleme, Hızlı Paylaş.
+2. **Notlarım** : notlar ve linkler için tam pencere. Artık ayrı bir uygulama değil; panelin
    üstündeki **kalem** düğmesi bu uygulamanın içindeki Notlarım penceresini açar.
 
 ## Menü çubuğu paneli
@@ -31,28 +31,28 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Açıkken uy
 - Kısa not satırına tıklamak metni panoya kopyalar; satıra uzun basmak kopyalar.
 - `.txt` içinde arama (⌘F), eşleşmeler işaretli, ▲▼ ile gezinme.
 - Eşitle (⇄, ⌘⇧S): aynı ağdaki açık Hızlı Paylaş cihazlarıyla `~/Link` içeriğini eşitler.
-- Paylaş menüsü: Safari/Paylaş menüsünde **Notlarım** (uygulamanın içindeki `NotlarimShare.appex` eklentisi).
-- Adres şeması: `notlarim://add?t=…` ve `notlarim://search?q=…` (eski `linkcepte://` adresleri de çalışır).
+- Paylaş menüsü: Safari/Paylaş menüsünde **Notlarım** (uygulamanın içindeki `PlanShare.appex` eklentisi).
+- Adres şeması: `plan://add?t=…` ve `plan://search?q=…`.
 - Chrome eklentisi: `chrome-extension/` klasörü uygulamanın içine konur. Notlarım penceresi açıkken menü çubuğunda
   **Notlarım → Chrome Eklentisi Klasörünü Aç**. Kurulum: [chrome-extension/README.md](chrome-extension/README.md).
 
 ## Klasör yapısı
 
 ```
-Package.swift            # NotMenu (uygulama) + NotMenuTests
+Package.swift            # Plan (uygulama) + PlanTests
 Info.plist, version.env  # Tek Info.plist; sürüm numarası version.env'de
-build.sh                 # NotMenu.app + NotMenu-macOS.zip (evrensel, ad-hoc imzalı)
+build.sh                 # Plan.app + Plan-macOS.zip (evrensel, ad-hoc imzalı)
 scripts/build_share.sh   # Paylaş eklentisini derler (build.sh çağırır)
 ShareExtension/          # Safari/Paylaş menüsü eklentisi (ayrı derlenir)
 chrome-extension/        # Chrome eklentisi (uygulamanın içine konur)
 Resources/               # Simgeler, tr/en ServicesMenu.strings
-Sources/NotMenu/
+Sources/Plan/
 ├── App.swift            # Giriş: Notlarım penceresi (Window), menü çubuğu simgesi (StatusItemController), AppDelegate, Hizmetler
 ├── ContentView.swift    # Arama çubuğu (ekleme/arama Notlarım ile ortak: NotesStore.submit / searchAsync)
 ├── FloatingBar.swift    # Arama çubuğunu sağ alt köşeye sabitleyen yüzen panel; menü çubuğu simgesi göster/gizle
 ├── QuickShare.swift     # Hızlı Paylaş
-└── Notlarim/            # Eski Link Cepte kodu (Models, Store, Services, ViewModel, Views, Support)
-Tests/NotMenuTests/      # Notlarım depolama katmanı testleri
+└── Notlarim/            # Notlarım kodu (Models, Store, Services, ViewModel, Views, Support)
+Tests/PlanTests/      # Notlarım depolama katmanı testleri
 ```
 
 Notlarım kodundaki çakışan adlar yeniden adlandırıldı: `Store` → `NotesStore`, `Model` → `NotesModel`,

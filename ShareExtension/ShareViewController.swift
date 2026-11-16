@@ -2,7 +2,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 /// Safari (ve diğer uygulamaların) Paylaş menüsündeki "Notlarım" girişi.
-/// Kendisi dosya yazmaz; linki `notlarim://add?t=...` adresiyle ana uygulamaya iletir
+/// Kendisi dosya yazmaz; linki `plan://add?t=...` adresiyle ana uygulamaya iletir
 /// (ana uygulama arka planda başlığı alıp kaydeder ve kısa bir bildirim gösterir).
 @objc(ShareViewController)
 final class ShareViewController: NSViewController {
@@ -51,7 +51,7 @@ final class ShareViewController: NSViewController {
         guard let text = text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { finish(); return }
         let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
         let enc = text.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
-        var link = "notlarim://add?t=" + enc
+        var link = "plan://add?t=" + enc
         if let s = subject, s != text { link += "&s=" + (s.addingPercentEncoding(withAllowedCharacters: allowed) ?? "") }
         guard let url = URL(string: link) else { finish(); return }
         let cfg = NSWorkspace.OpenConfiguration()

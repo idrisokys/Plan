@@ -12,7 +12,7 @@ Başlık otomatik alınır; link `~/Link` klasörüne `.url` dosyası olarak yaz
 
 **1. Uygulamayı hazırlayın**
 Notlarım'ı (menü çubuğu uygulaması) **Uygulamalar** klasörüne taşıyıp bir kez açın. Linkler `~/Link` klasörüne kaydedilir.
-(Bu adım, Chrome'un kullandığı `notlarim://` adresini sisteme tanıtır.)
+(Bu adım, Chrome'un kullandığı `plan://` adresini sisteme tanıtır.)
 
 **2. Eklenti klasörünü açın**
 Menü çubuğundaki Notlarım simgesinde kalem düğmesiyle Notlarım penceresini açın; üstteki menü çubuğunda **Notlarım → Chrome Eklentisi Klasörünü Aç**'a tıklayın. Finder'da bu klasör açılır.
@@ -81,7 +81,7 @@ automatically and the link is written as a `.url` file into the `~/Link` folder.
 
 **1. Prepare the app**
 Move My Notes to **Applications** and open it once (it runs in the menu bar). Links are saved to `~/Link`.
-(This registers the `notlarim://` address Chrome uses.)
+(This registers the `plan://` address Chrome uses.)
 
 **2. Open the extension folder**
 Open the My Notes window with the pencil button in the menu-bar popover, then in the top menu bar choose **My Notes → Open Chrome Extension Folder**. The folder opens in Finder. It lives at:

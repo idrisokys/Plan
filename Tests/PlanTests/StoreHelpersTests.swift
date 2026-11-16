@@ -1,5 +1,5 @@
 import XCTest
-@testable import NotMenu
+@testable import Plan
 
 final class StoreHelpersTests: XCTestCase {
     func testFoldIgnoresTurkishLettersCaseAndAccents() {

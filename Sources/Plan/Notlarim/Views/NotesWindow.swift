@@ -4,7 +4,7 @@ import AppKit
 /// Notlarım penceresi: menü çubuğundaki kalem düğmesiyle açılır (tek pencere, ekranın sağ kenarına tutturulur).
 @MainActor
 enum NotesWindow {
-    static let id = "notlarim"
+    static let id = "plan"
 
     /// Pencereyi kullanıcı mı açtı? `Window` sahnesi uygulama açılırken kendiliğinden görünürse
     /// `WindowDock` onu hemen kapatır; menü çubuğu uygulaması açılışta pencere göstermez.
@@ -22,7 +22,7 @@ enum NotesWindow {
         if requested, let w = window, w.isVisible { w.close() } else { show() }
     }
 
-    /// Pencereyi açar / öne getirir (SwiftUI dışından, örn. notlarim://search adresi için).
+    /// Pencereyi açar / öne getirir (SwiftUI dışından, örn. plan://search adresi için).
     static func show() {
         requested = true
         // Pencere açıkken Dock simgesi ve menü çubuğu (Notlarım menüsü, ⌘ kısayolları) görünsün.

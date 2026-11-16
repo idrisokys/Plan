@@ -63,7 +63,7 @@ final class NotesModel: ObservableObject {
     var prevLinkCount = 0   // Enter ile gönderimi algılamak için önceki uzunluk
 
     /// Tüm dosya işlemleri sıralı yapılır.
-    private let queue = DispatchQueue(label: "notlarim.io")
+    private let queue = DispatchQueue(label: "plan.io")
 
     // Arama / sıra değiştirme
     private(set) lazy var reorderInput = ReorderInput(model: self)

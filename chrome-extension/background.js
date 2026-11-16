@@ -1,5 +1,5 @@
 // Araç çubuğu simgesine tıklanınca (veya sağ tık menüsünden) linki Mac uygulamasına
-// notlarim://add?t=... adresiyle iletir. Adres, sayfanın içinden değil Chrome'un kendi
+// plan://add?t=... adresiyle iletir. Adres, sayfanın içinden değil Chrome'un kendi
 // sekme API'siyle açılır; böylece "kullanıcı etkileşimi yok" engeline takılmaz.
 
 const tr = (chrome.i18n.getUILanguage() || '').startsWith('tr');
@@ -16,7 +16,7 @@ function badge(tabId, text, color) {
 
 async function send(url, tabId, title) {
   if (!url || !/^https?:\/\//i.test(url)) { badge(tabId, '!', '#c0392b'); return; }
-  let target = 'notlarim://add?t=' + encode(url);
+  let target = 'plan://add?t=' + encode(url);
   if (title && title !== url) target += '&s=' + encode(title);   // sayfa başlığı (tarayıcının bildiği)
   try {
     // Sayfa değişmez: harici uygulama adresleri sekmede açılmaz, doğrudan uygulamaya devredilir.

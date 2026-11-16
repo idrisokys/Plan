@@ -2,13 +2,13 @@ import SwiftUI
 import AppKit
 
 @main
-struct NotMenuApp: App {
+struct PlanApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var notes = NotesModel.shared
 
     var body: some Scene {
-        // Notlarım (eski adıyla Link Cepte): menü çubuğundaki kalem düğmesiyle açılan tek pencere.
-        // Tek pencere olduğu için notlarim:// adresi geldiğinde yeni pencere açılmaz.
+        // Notlarım: menü çubuğundaki kalem düğmesiyle açılan tek pencere.
+        // Tek pencere olduğu için plan:// adresi geldiğinde yeni pencere açılmaz.
         Window(L("Notlarım", "My Notes"), id: NotesWindow.id) {
             NotesRoot().environmentObject(notes)
         }
@@ -45,7 +45,7 @@ struct NotMenuApp: App {
     }
 }
 
-/// Notlarım penceresinin kökü: pencere açma eylemini saklar (AppDelegate'in notlarim://search adresi için).
+/// Notlarım penceresinin kökü: pencere açma eylemini saklar (AppDelegate'in plan://search adresi için).
 private struct NotesRoot: View {
     @Environment(\.openWindow) private var openWindow
     var body: some View {
@@ -119,7 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Paylaş eklentisini sisteme tanıtır ve etkinleştirmeyi dener (hata olursa sessizce geçer).
     private func registerShareExtension() {
-        let appex = Bundle.main.bundleURL.appendingPathComponent("Contents/PlugIns/NotlarimShare.appex")
+        let appex = Bundle.main.bundleURL.appendingPathComponent("Contents/PlugIns/PlanShare.appex")
         guard FileManager.default.fileExists(atPath: appex.path) else { return }
         DispatchQueue.global(qos: .utility).async {
             for args in [["-a", appex.path], ["-e", "use", "-i", AppInfo.shareExtensionID]] {
@@ -132,10 +132,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Paylaş eklentisi / Chrome eklentisinden gelen notlarim://add?t=... ve notlarim://search?q=... adresleri.
-    /// Eski linkcepte:// adresleri de kabul edilir.
+    /// Paylaş eklentisi / Chrome eklentisinden gelen plan://add?t=... ve plan://search?q=... adresleri.
     func application(_ application: NSApplication, open urls: [URL]) {
-        for u in urls where u.scheme == AppInfo.urlScheme || u.scheme == AppInfo.legacyURLScheme {
+        for u in urls where u.scheme == AppInfo.urlScheme {
             guard let c = URLComponents(url: u, resolvingAgainstBaseURL: false) else { continue }
             if u.host == "search" {
                 if let q = c.queryItems?.first(where: { $0.name == "q" })?.value {

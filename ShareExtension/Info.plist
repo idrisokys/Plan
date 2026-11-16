@@ -3,8 +3,8 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
-    <key>CFBundleExecutable</key><string>NotlarimShare</string>
-    <key>CFBundleIdentifier</key><string>io.github.idrisokys.notmenu.share</string>
+    <key>CFBundleExecutable</key><string>PlanShare</string>
+    <key>CFBundleIdentifier</key><string>github.idrisokys.plan.share</string>
     <key>CFBundleName</key><string>Notlarım</string>
     <key>CFBundleDisplayName</key><string>Notlarım</string>
     <key>CFBundlePackageType</key><string>XPC!</string>

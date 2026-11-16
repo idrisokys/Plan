@@ -142,9 +142,24 @@ struct ContentView: View {
                     }.padding(.horizontal, 8).padding(.vertical, 5)
                 }
             }
+            infoLine
         }
         .padding(.vertical, 4)
         .background(RoundedRectangle(cornerRadius: 14).fill(menuBG))
+    }
+
+    /// Gönderme / alma bilgisi: bildirim yok, yalnızca paylaşım ekranında tek satır.
+    private var infoLine: some View {
+        let i = qs.info
+        return VStack(spacing: 0) {
+            Divider().overlay(Color.white.opacity(0.1)).padding(.horizontal, 8)
+            HStack(spacing: 8) {
+                Image(systemName: i?.icon ?? "tray.and.arrow.down").font(.system(size: 13)).foregroundStyle(dim)
+                Text(i?.text ?? "Gönderilen ve alınan dosyalar burada görünür")
+                    .font(.system(size: 13)).foregroundStyle(dim).lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 0)
+            }.padding(.horizontal, 12).padding(.vertical, 8)
+        }
     }
 
     // MARK: Arama sonuçları — alttan üste: [arama kutusu] ← en iyi sonuç ← … ← (sorgu · eklenen motorlar · +) ← motor ekleme paneli

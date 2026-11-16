@@ -1,5 +1,5 @@
 import XCTest
-@testable import NotMenu
+@testable import Plan
 
 /// Geçici bir klasörde gerçek dosya işlemlerini dener (~/Link'e dokunmaz).
 final class StoreFileTests: XCTestCase {
@@ -7,7 +7,7 @@ final class StoreFileTests: XCTestCase {
 
     override func setUpWithError() throws {
         dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("notlarim-test-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("plan-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     }
 

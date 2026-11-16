@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 // Koyu zemin, yarı saydam siyah yuvarlak düğmeler.
-// Üst çubuk: [Paylaş] [arama kutusu] [Kalem → Link Cepte] [Kapat]
+// Üst çubuk: [Paylaş] [arama kutusu] [Kalem → Notlarım] [Kapat]
 private let panelBG = Color(white: 0.13)
 private let idleBG = Color.black.opacity(0.45)
 private let onRed = Color(red: 1.0, green: 0.45, blue: 0.45)          // açık kırmızı "ON"
@@ -17,7 +17,7 @@ private func circle(_ system: String, size: CGFloat = 40) -> some View {
         .background(Circle().fill(idleBG))
 }
 
-// MARK: Arama motorları (Yandex sabit; eklenenler UserDefaults'ta tutulur)
+// MARK: Arama motorları (eklenenler UserDefaults'ta tutulur)
 struct SearchEngine: Codable, Identifiable, Hashable {
     var id = UUID()
     var name: String
@@ -54,8 +54,6 @@ struct ContentView: View {
     @State private var status = ""
     @State private var engines = SearchEngine.load()
     @State private var addOpen = false
-    @State private var hoverPlus = false
-    @State private var hoverAdd = false
     @State private var newName = ""
     @State private var newURL = ""
     @FocusState private var focused: Bool
@@ -94,9 +92,9 @@ struct ContentView: View {
                 .padding(.horizontal, 16).frame(height: 44)
                 .background(Capsule().fill(idleBG))
 
-            // Kalem: Link Cepte uygulamasını (notlar ve linkler) pencere olarak açar
+            // Kalem: Notlarım uygulamasını (notlar ve linkler) pencere olarak açar
             Button { openLinkCepte() } label: { circle("square.and.pencil") }
-                .buttonStyle(.plain).help("Link Cepte'yi aç")
+                .buttonStyle(.plain).help("Notlarım")
             // Kapat: uygulamadan çıkar
             Button { NSApp.terminate(nil) } label: { circle("xmark") }
                 .buttonStyle(.plain).help("Kapat")
@@ -141,21 +139,18 @@ struct ContentView: View {
         .background(RoundedRectangle(cornerRadius: 14).fill(menuBG))
     }
 
-    // MARK: Arama sonuçları: en çok 3 not + (sorgu · Yandex · + · eklenen motorlar) satırı
+    // MARK: Arama sonuçları: en çok 3 not + (sorgu · + · eklenen motorlar) satırı
     private var searchResults: some View {
         VStack(spacing: 0) {
             ForEach(hits.prefix(3)) { n in NoteRow(note: n, onChange: model.reload, onStatus: flash) }
             HStack(spacing: 14) {
                 Text(trimmed).font(.system(size: 17)).foregroundStyle(.white).lineLimit(1)
                 Spacer()
-                Button { yandex() } label: { letterIcon("Y", color: .red, heavy: true) }
-                    .buttonStyle(.plain).help("Yandex'te ara")
                 Button { addOpen.toggle() } label: {
                     Image(systemName: "plus").font(.system(size: 17, weight: .heavy)).foregroundStyle(.white)
                         .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.2)))
                 }
                 .buttonStyle(.plain).help("Arama motoru ekle")
-                .onHover { h in hoverPlus = h; scheduleCloseAdd() }
                 ForEach(engines) { e in
                     Button { run(e) } label: { letterIcon(e.letter, color: .white, heavy: false) }
                         .buttonStyle(.plain).help(e.name)
@@ -171,7 +166,7 @@ struct ContentView: View {
             .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.2)))
     }
 
-    // MARK: Arama motoru ekleme bölümü (fare dışarı çıkınca kapanır)
+    // MARK: Arama motoru ekleme bölümü (+ ile açılır/kapanır)
     private var addEnginePanel: some View {
         VStack(alignment: .leading, spacing: 8) {
             field("Ad (örn. Google)", $newName)
@@ -188,7 +183,6 @@ struct ContentView: View {
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 14).fill(menuBG))
         .padding(.top, 8)
-        .onHover { h in hoverAdd = h; scheduleCloseAdd() }
     }
 
     private func field(_ prompt: String, _ b: Binding<String>) -> some View {
@@ -202,11 +196,6 @@ struct ContentView: View {
     private func submit() {
         guard !trimmed.isEmpty else { return }
         if Store.submit(trimmed) { text = ""; flash("Eklendi"); model.reload() } else { flash("Eklenemedi") }
-    }
-    private func yandex() {
-        guard let q = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let u = URL(string: "https://yandex.com/search/?text=\(q)") else { return }
-        NSWorkspace.shared.open(u); text = ""
     }
     private func run(_ e: SearchEngine) {
         guard let u = e.searchURL(trimmed) else { flash("Adres geçersiz"); return }
@@ -227,18 +216,12 @@ struct ContentView: View {
     private func removeEngine(_ e: SearchEngine) {
         engines.removeAll { $0.id == e.id }; SearchEngine.save(engines)
     }
-    /// Fare + düğmesinden ve açılan bölümden çıkınca (kısa gecikmeyle) bölüm kapanır.
-    private func scheduleCloseAdd() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            if !hoverPlus && !hoverAdd { addOpen = false }
-        }
-    }
     private func openLinkCepte() {
         let ws = NSWorkspace.shared
-        guard let u = ws.urlForApplication(withBundleIdentifier: linkCepteID) else { flash("Link Cepte kurulu değil"); return }
+        guard let u = ws.urlForApplication(withBundleIdentifier: linkCepteID) else { flash("Notlarım uygulaması kurulu değil"); return }
         let cfg = NSWorkspace.OpenConfiguration(); cfg.activates = true
         ws.openApplication(at: u, configuration: cfg) { _, err in
-            if err != nil { DispatchQueue.main.async { flash("Link Cepte açılamadı") } }
+            if err != nil { DispatchQueue.main.async { flash("Notlarım açılamadı") } }
         }
     }
     private func pickAndSend(to d: QSDevice) {

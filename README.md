@@ -1,7 +1,7 @@
 # NotMenu — macOS menü çubuğu: arama + not ekleme + paylaşım
 
-- Üst çubuk: [Paylaş] [arama kutusu] [Kalem] [Kapat]. Kalem = Link Cepte uygulamasını (notlar ve linkler) pencere olarak açar; Kapat = uygulamadan çıkar. Yazınca en çok 3 not + (sorgu · Yandex · + · eklenen motorlar) satırı çıkar.
-- Arama motoru ekle: Yandex'in yanındaki + → ad ve adres (`%s` aranan kelimenin yerine geçer) yaz, Ekle. Yeni motor ilk harfiyle en sağda görünür (sağ tık → Sil). Fare bölümün dışına çıkınca bölüm kapanır.
+- Üst çubuk: [Paylaş] [arama kutusu] [Kalem] [Kapat]. Kalem = Notlarım uygulamasını (eski adıyla Link Cepte; notlar ve linkler) sağa tutturulmuş küçük pencere olarak açar; Kapat = uygulamadan çıkar. Yazınca en çok 3 not + (sorgu · + · eklenen motorlar) satırı çıkar.
+- Arama motoru ekle: Arama satırındaki + → ad ve adres (`%s` aranan kelimenin yerine geçer) yaz, Ekle. Yeni motor ilk harfiyle en sağda görünür (sağ tık → Sil). + ile açılan bölüm tekrar + ile ya da Ekle ile kapanır.
 - Enter / "Ekle": link ise .url, kısa metin not, 220 karakterden uzunsa .txt olarak kaydeder (MyLauncher kuralı).
 - Satırın üstüne gelince: Paylaş, Kopyala, Çöpe at. Linke tıkla = tarayıcıda açılır.
 - Herhangi bir uygulamada metin seç → Hizmetler → "Notlarıma Kaydet" (ilk seferde Sistem Ayarları > Klavye > Klavye Kısayolları > Hizmetler'den açman gerekebilir).

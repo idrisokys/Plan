@@ -14,6 +14,7 @@ struct WindowDock: NSViewRepresentable {
             super.viewDidMoveToWindow()
             guard !done, let w = window else { return }
             done = true
+            NotesWindow.window = w
             closeObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification, object: w, queue: .main) { _ in
                     Task { @MainActor in NotesWindow.didClose() }

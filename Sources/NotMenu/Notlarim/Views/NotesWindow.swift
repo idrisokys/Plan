@@ -14,6 +14,14 @@ enum NotesWindow {
     /// AppDelegate gibi SwiftUI dışı yerlerden de pencere açabilmek için.
     static var opener: OpenWindowAction?
 
+    /// Açık Notlarım penceresi (WindowDock doldurur); kalem düğmesi aç/kapat için.
+    static weak var window: NSWindow?
+
+    /// Kalem düğmesi: pencere açıksa kapatır, değilse açar.
+    static func toggle() {
+        if requested, let w = window, w.isVisible { w.close() } else { show() }
+    }
+
     /// Pencereyi açar / öne getirir (SwiftUI dışından, örn. notlarim://search adresi için).
     static func show() {
         requested = true

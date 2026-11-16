@@ -101,8 +101,8 @@ struct ContentView: View {
                 .background(Capsule().fill(idleBG))
 
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
-            Button { NotesWindow.show() } label: { circle("square.and.pencil") }
-                .buttonStyle(.plain).help("Notlarım")
+            Button { NotesWindow.toggle() } label: { circle("square.and.pencil") }
+                .buttonStyle(.plain).help("Notlarım (aç/kapat)")
             // Gizle: çubuğu kapatır (menü çubuğu simgesine tıklayınca tekrar görünür)
             Button { FloatingBar.shared.hide() } label: { circle("xmark") }
                 .buttonStyle(.plain).help("Gizle (menü çubuğu simgesiyle tekrar aç)")

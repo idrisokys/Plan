@@ -13,10 +13,17 @@ private final class BarPanel: NSPanel {
 private final class FitHostingView<V: View>: NSHostingView<V> {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        // macOS 13+: NSHostingView pencereyi içeriğe göre kendisi boyutlandırır ve sol-üst köşeyi sabit tutar
+        // (çubuk aşağı kayar). Boyutlandırmayı yalnızca fitWindow yapsın: sağ-alt köşe sabit, yukarı büyür.
+        sizingOptions = [.intrinsicContentSize]
         DispatchQueue.main.async { [weak self] in self?.fitWindow() }
     }
     override func invalidateIntrinsicContentSize() {
         super.invalidateIntrinsicContentSize()
+        DispatchQueue.main.async { [weak self] in self?.fitWindow() }
+    }
+    override func layout() {
+        super.layout()
         DispatchQueue.main.async { [weak self] in self?.fitWindow() }
     }
     func fitWindow() {

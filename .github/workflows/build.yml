@@ -20,19 +20,20 @@ jobs:
       - name: Swift sürümü
         run: swift --version
 
-      - name: Derle (.app oluştur)
-        run: |
-          chmod +x build.sh
-          ./build.sh
+      - name: Birim testleri (Notlarım depolama katmanı)
+        run: swift test
 
-      - name: Zip'le (ditto izinleri korur)
-        run: ditto -c -k --sequesterRsrc --keepParent NotMenu.app NotMenu-macOS.zip
+      - name: Derle (.app + .zip oluştur)
+        run: |
+          chmod +x build.sh scripts/build_share.sh
+          ./build.sh
 
       - name: Artifact olarak yükle
         uses: actions/upload-artifact@v4
         with:
           name: NotMenu-macOS
           path: NotMenu-macOS.zip
+          if-no-files-found: error
 
       - name: Release oluştur (sadece v* tag'inde)
         if: startsWith(github.ref, 'refs/tags/v')

@@ -9,8 +9,6 @@ private let onRed = Color(red: 1.0, green: 0.45, blue: 0.45)          // açık 
 private let menuBG = Color(red: 0.165, green: 0.165, blue: 0.165)
 private let dim = Color.white.opacity(0.67)
 
-private let linkCepteID = "io.github.idrisokys.linkcepte.mac"
-
 private func circle(_ system: String, size: CGFloat = 40) -> some View {
     Image(systemName: system).font(.system(size: 16, weight: .medium)).foregroundStyle(.white)
         .frame(width: size, height: size)
@@ -49,6 +47,7 @@ struct SearchEngine: Codable, Identifiable, Hashable {
 
 struct ContentView: View {
     @EnvironmentObject var model: NoteModel
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject private var qs = QuickShare.shared
     @State private var text = ""
     @State private var status = ""
@@ -92,8 +91,8 @@ struct ContentView: View {
                 .padding(.horizontal, 16).frame(height: 44)
                 .background(Capsule().fill(idleBG))
 
-            // Kalem: Notlarım uygulamasını (notlar ve linkler) pencere olarak açar
-            Button { openLinkCepte() } label: { circle("square.and.pencil") }
+            // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
+            Button { NotesWindow.open(openWindow) } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help("Notlarım")
             // Kapat: uygulamadan çıkar
             Button { NSApp.terminate(nil) } label: { circle("xmark") }
@@ -195,7 +194,7 @@ struct ContentView: View {
     // MARK: Eylemler
     private func submit() {
         guard !trimmed.isEmpty else { return }
-        if Store.submit(trimmed) { text = ""; flash("Eklendi"); model.reload() } else { flash("Eklenemedi") }
+        if Store.submit(trimmed) { text = ""; flash("Eklendi"); model.reload(); NotesModel.shared.reload() } else { flash("Eklenemedi") }
     }
     private func run(_ e: SearchEngine) {
         guard let u = e.searchURL(trimmed) else { flash("Adres geçersiz"); return }
@@ -215,14 +214,6 @@ struct ContentView: View {
     }
     private func removeEngine(_ e: SearchEngine) {
         engines.removeAll { $0.id == e.id }; SearchEngine.save(engines)
-    }
-    private func openLinkCepte() {
-        let ws = NSWorkspace.shared
-        guard let u = ws.urlForApplication(withBundleIdentifier: linkCepteID) else { flash("Notlarım uygulaması kurulu değil"); return }
-        let cfg = NSWorkspace.OpenConfiguration(); cfg.activates = true
-        ws.openApplication(at: u, configuration: cfg) { _, err in
-            if err != nil { DispatchQueue.main.async { flash("Notlarım açılamadı") } }
-        }
     }
     private func pickAndSend(to d: QSDevice) {
         NSApp.activate(ignoringOtherApps: true)

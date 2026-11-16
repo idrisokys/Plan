@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleName</key><string>NotMenu</string>
-<key>CFBundleDisplayName</key><string>Notlarım Menü</string>
+<key>CFBundleDevelopmentRegion</key><string>tr</string>
+<key>CFBundleLocalizations</key><array><string>tr</string><string>en</string></array>
+<key>CFBundleName</key><string>Notlarım</string>
+<key>CFBundleDisplayName</key><string>Notlarım</string>
 <key>CFBundleIdentifier</key><string>io.github.idrisokys.notmenu</string>
 <key>CFBundleExecutable</key><string>NotMenu</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
@@ -10,13 +12,23 @@
 <key>CFBundleVersion</key><string>1</string>
 <key>CFBundleShortVersionString</key><string>1.0</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
 <key>LSUIElement</key><true/>
-<key>NSLocalNetworkUsageDescription</key><string>Aynı ağdaki telefon ve TV'den dosya almak için gerekli.</string>
+<key>NSPrincipalClass</key><string>NSApplication</string>
+<key>NSHighResolutionCapable</key><true/>
+<!-- Notlarım: sayfa başlığını almak için; yönlendirmeyle http'ye düşen adreslere de izin verir -->
+<key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
+<key>NSLocalNetworkUsageDescription</key><string>Aynı ağdaki telefon ve TV ile dosya almak, göndermek ve notları eşitlemek için gerekli.</string>
 <key>NSBonjourServices</key><array><string>_qshare._tcp</string></array>
+<!-- Paylaş eklentisi ve Chrome eklentisi uygulamaya notlarim://add?t=... ile iletir (eski linkcepte:// de çalışır) -->
+<key>CFBundleURLTypes</key><array><dict>
+  <key>CFBundleURLName</key><string>io.github.idrisokys.notmenu</string>
+  <key>CFBundleURLSchemes</key><array><string>notlarim</string><string>linkcepte</string></array>
+</dict></array>
 <key>NSServices</key><array><dict>
   <key>NSMenuItem</key><dict><key>default</key><string>Notlarıma Kaydet</string></dict>
   <key>NSMessage</key><string>saveSelection</string>
   <key>NSPortName</key><string>NotMenu</string>
-  <key>NSSendTypes</key><array><string>NSStringPboardType</string></array>
+  <key>NSSendTypes</key><array><string>NSStringPboardType</string><string>public.utf8-plain-text</string></array>
 </dict></array>
 </dict></plist>

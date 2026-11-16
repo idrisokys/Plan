@@ -1,0 +1,5 @@
+.build/
+build/
+NotMenu.app/
+NotMenu-macOS.zip
+.DS_Store

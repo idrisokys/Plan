@@ -34,7 +34,7 @@ extension NotesStore {
         return String(out)
     }
 
-    /// Tüm klasörlerde; başlık, link adresi ve not metninde arar. Yazılan her kelime bulunmalıdır.
+    /// Tüm klasörlerde; klasör adı, başlık, link adresi ve not metninde arar. Yazılan her kelime bulunmalıdır.
     static func search(root: URL, query: String, alive: @escaping () -> Bool) -> [Hit] {
         let terms = fold(query).components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
         if terms.isEmpty { return [] }
@@ -43,13 +43,19 @@ extension NotesStore {
         func walk(_ dir: URL, _ path: [Entry]) {
             for e in list(dir) {
                 if !alive() { return }
-                if e.isDir { walk(e.url, path + [e]) } else { files.append((e, path)) }
+                if e.isDir { files.append((e, path)); walk(e.url, path + [e]) } else { files.append((e, path)) }
             }
         }
         walk(root, [])
         let snapshot = files
 
         func match(_ e: Entry, _ path: [Entry]) -> Hit? {
+            // Klasör: yalnızca adında aranır
+            if e.isDir {
+                let fn = fold(e.title)
+                guard terms.allSatisfy({ fn.contains($0) }) else { return nil }
+                return Hit(entry: e, path: path, detail: "", isNote: false, titleMatch: true)
+            }
             let ls = e.isTxt ? [] : lines(e.url)
             let url = urlOf(ls)
             let text = e.isTxt ? (readPlain(e.url) ?? "") : (textOf(ls) ?? "")

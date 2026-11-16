@@ -29,7 +29,7 @@ struct AddBar: View {
                         .allowsHitTesting(false)
                 }
             }
-            .frame(minHeight: 56, maxHeight: 140)
+            .frame(minHeight: m.editorMinHeight, maxHeight: m.editorMaxHeight)
             .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.35)))
 

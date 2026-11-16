@@ -21,7 +21,7 @@ struct RenameBar: View {
                         .allowsHitTesting(false)
                 }
             }
-            .frame(minHeight: 56, maxHeight: 140)
+            .frame(minHeight: m.editorMinHeight, maxHeight: m.editorMaxHeight)
             .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.35)))
             .onChange(of: m.renameText) { v in
@@ -33,6 +33,7 @@ struct RenameBar: View {
                 Text(over ? "\(m.renameText.count)/\(m.maxChars) → .txt" : "\(m.renameText.count)/\(m.maxChars)")
                     .font(.caption)
                     .foregroundStyle(over ? Color.red : Color.secondary)
+                MoveButtons()
                 Spacer()
                 Button { m.pasteIntoRename() } label: { Image(systemName: "doc.on.clipboard") }
                     .help(L("Yapıştır", "Paste"))
@@ -40,7 +41,6 @@ struct RenameBar: View {
                     .keyboardShortcut("s", modifiers: .command)
                     .disabled(m.renameText.trimmed.isEmpty)
                     .help(L("Kaydet (⌘S)", "Save (⌘S)"))
-                MoveButtons()
             }
             .frame(height: 30)   // ekleme çubuğundaki düğme satırıyla aynı yükseklik
         }

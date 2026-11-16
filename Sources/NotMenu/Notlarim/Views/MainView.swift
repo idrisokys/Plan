@@ -13,7 +13,6 @@ struct MainView: View {
             else if m.editMode && m.selected.count > 1 { MultiBar() }
             else { AddBar() }
         }
-        .navigationTitle(m.title)
         // Başlık sistem başlığı yerine araç çubuğunda durur; simgeler başlıktan hemen sonra sağa doğru sıralanır.
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
@@ -24,8 +23,6 @@ struct MainView: View {
                     Button { m.goBack() } label: { Image(systemName: "chevron.left") }
                         .help(L("Geri", "Back"))
                 }
-                Text(m.title).font(.headline).lineLimit(1).truncationMode(.tail)
-                    .frame(maxWidth: 160, alignment: .leading)
                 if m.searchQuery == nil {
                     Button { m.sheet = .folder } label: { Image(systemName: "folder.badge.plus") }
                         .help(L("Klasör", "Folder"))
@@ -41,6 +38,11 @@ struct MainView: View {
                     // Yenile: Link klasörünü tekrar kontrol eder ve listeyi yeniden yükler
                     Button { m.refresh() } label: { Image(systemName: "arrow.clockwise") }
                         .help(L("Yenile", "Refresh"))
+                }
+                // İkonların SAĞINDA; "Notlarım" başlığı gösterilmez, yalnızca klasör içindeyken / arama ve seçim sırasında bilgi yazısı çıkar
+                if m.title != L("Notlarım", "My Notes") {
+                    Text(m.title).font(.headline).lineLimit(1).truncationMode(.tail)
+                        .frame(maxWidth: 160, alignment: .leading)
                 }
             }
         }
@@ -94,7 +96,12 @@ struct MainView: View {
         let targets: [Entry] = (sel && m.selected.count > 1) ? m.list.filter { m.selected.contains($0.key) } : [e]
         HStack(spacing: 10) {
             if m.editMode {
-                Spacer().frame(width: 24)      // düzenleme modunda simge yok: seçim satıra dokunarak yapılır
+                // Düzenleme modunda soldaki boşluğa tıklamak satırı seçer / seçimi kaldırır
+                Image(systemName: sel ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(sel ? Color.accentColor : Color.secondary.opacity(0.5))
+                    .frame(width: 24)
+                    .contentShape(Rectangle())
+                    .onTapGesture { m.toggle(e.key) }
             } else {
                 Image(systemName: e.isDir ? "folder" : (e.isTxt ? "doc.text" : "link"))
                     .frame(width: 24)
@@ -103,7 +110,9 @@ struct MainView: View {
             Spacer(minLength: 8)
             // Üç nokta: tek tıkla menü (Taşı / Paylaş / Sil); basılı tutunca düzenleme modu açılır/kapanır
             Menu {
-                Button(L("Düzenle", "Edit")) { m.beginEdit() }
+                Button(m.editMode ? L("Düzenlemeyi bitir", "Done editing") : L("Düzenle", "Edit")) {
+                    if m.editMode { m.toggleEdit() } else { m.beginEdit() }
+                }
                 Divider()
                 Button(L("Taşı", "Move")) { m.beginMove(targets) }
                 Button(L("Paylaş", "Share")) { m.shareEntries(targets) }

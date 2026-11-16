@@ -23,7 +23,7 @@ struct SearchResultsView: View {
     @ViewBuilder
     private func hitRow(_ h: Hit) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: (h.isNote || h.entry.isTxt) ? "doc.text" : "link")
+            Image(systemName: h.entry.isDir ? "folder" : ((h.isNote || h.entry.isTxt) ? "doc.text" : "link"))
                 .frame(width: 24)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 2) {
@@ -49,6 +49,9 @@ struct SearchResultsView: View {
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
-        .onTapGesture { m.open(h.entry) }
+        .onTapGesture {
+            if h.entry.isDir { m.exitSearch(true); m.setStack(h.path + [h.entry]) }   // klasör: içine gir
+            else { m.open(h.entry) }
+        }
     }
 }

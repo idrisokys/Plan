@@ -52,6 +52,9 @@ final class NotesModel: ObservableObject {
         if let r = renaming, !r.isDir, !r.isTxt { return 20_000 }
         return maxChars
     }
+    /// Ekleme / ad alanı yüksekliği: eski 56–140 pt'ten 3 satır kadar küçük.
+    var editorMinHeight: CGFloat { max(30, 56 - 3 * fontSize * 1.25) }
+    var editorMaxHeight: CGFloat { max(editorMinHeight, 140 - 3 * fontSize * 1.25) }
     let addMax = 220     // alttaki ekleme alanı sınırı
     var prevLinkCount = 0   // Enter ile gönderimi algılamak için önceki uzunluk
 

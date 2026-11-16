@@ -21,7 +21,8 @@ struct WindowDock: NSViewRepresentable {
             DispatchQueue.main.async {
                 if !NotesWindow.requested { w.close(); return }
                 w.isRestorable = false
-                w.titleVisibility = .hidden   // başlık araç çubuğunda gösterilir
+                w.titleVisibility = .hidden
+                w.title = ""                  // "Notlarım" başlığı gösterilmez
                 w.setContentSize(WindowDock.size)
                 guard let scr = w.screen ?? NSScreen.main else { return }
                 let vf = scr.visibleFrame

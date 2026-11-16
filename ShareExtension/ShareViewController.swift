@@ -13,7 +13,7 @@ final class ShareViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         collect { [weak self] text in
-            DispatchQueue.main.async { self?.forward(text) }
+            DispatchQueue.main.async { self?.forward(text, subject: self?.pageTitle()) }
         }
     }
 
@@ -39,11 +39,21 @@ final class ShareViewController: NSViewController {
         done(items.first?.attributedContentText?.string)
     }
 
-    private func forward(_ text: String?) {
+    /// Paylaşan uygulamanın (Safari vb.) verdiği sayfa başlığı.
+    private func pageTitle() -> String? {
+        let item = (extensionContext?.inputItems as? [NSExtensionItem])?.first
+        let t = item?.attributedTitle?.string ?? item?.attributedContentText?.string
+        let v = t?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (v?.isEmpty == false) ? v : nil
+    }
+
+    private func forward(_ text: String?, subject: String? = nil) {
         guard let text = text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { finish(); return }
         let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
         let enc = text.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
-        guard let url = URL(string: "notlarim://add?t=" + enc) else { finish(); return }
+        var link = "notlarim://add?t=" + enc
+        if let s = subject, s != text { link += "&s=" + (s.addingPercentEncoding(withAllowedCharacters: allowed) ?? "") }
+        guard let url = URL(string: link) else { finish(); return }
         let cfg = NSWorkspace.OpenConfiguration()
         cfg.activates = false   // uygulamayı öne getirme
         NSWorkspace.shared.open(url, configuration: cfg) { [weak self] _, _ in

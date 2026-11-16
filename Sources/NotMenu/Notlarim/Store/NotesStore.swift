@@ -99,8 +99,8 @@ enum NotesStore {
         var i = 2
         while taken.contains(norm(name)) { name = "\(b) (\(i))\(ext)"; i += 1 }
         do { try data.write(to: dir.appendingPathComponent(name), options: .atomic) } catch { return false }
-        // Yeni öğe listenin sonuna eklenir; mevcut sıra korunur.
-        saveOrderIn(dir, ordered(all).map { $0.name } + [name])
+        // Yeni eklenen öğe listenin EN ÜSTÜNE konur; mevcut sıra altta aynen devam eder.
+        saveOrderIn(dir, [name] + ordered(all).map { $0.name })
         return true
     }
 
@@ -159,10 +159,11 @@ enum NotesStore {
         let t = text.trimmed
         if t.isEmpty { return false }
         guard let url = extractUrl(t) else { return addNote(dir, text: t) }
-        var title: String? = await PageTitle.fetch(url)
-        if title == nil {
-            title = subject?.components(separatedBy: .newlines).first(where: { !$0.trimmed.isEmpty })?.trimmed
-        }
+        // Paylaşan tarayıcı sayfanın başlığını veriyorsa (Safari/Chrome) o kullanılır; yoksa sayfa indirilip <title> alınır.
+        var title: String? = nil
+        if let s = subject?.components(separatedBy: .newlines).first(where: { !$0.trimmed.isEmpty })?.trimmed,
+           extractUrl(s) == nil { title = s }
+        if title == nil { title = await PageTitle.fetch(url) }
         if title == nil {
             title = t.replacingOccurrences(of: url, with: "")
                 .components(separatedBy: .newlines).first(where: { !$0.trimmed.isEmpty })?.trimmed
@@ -198,6 +199,7 @@ enum NotesStore {
         while all.contains(where: { norm($0.name) == norm(n) }) { n = "\(base) (\(i))"; i += 1 }
         let u = dir.appendingPathComponent(n, isDirectory: true)
         do { try FileManager.default.createDirectory(at: u, withIntermediateDirectories: false) } catch { return nil }
+        saveOrderIn(dir, [n] + ordered(all).map { $0.name })     // yeni klasör de en üstte
         return u
     }
 

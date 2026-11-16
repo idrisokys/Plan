@@ -49,19 +49,20 @@ extension NotesModel {
     }
 
     /// Sürükle-bırak ve Servisler menüsünden gelen metin/link.
-    func addExternal(_ text: String, into dir: URL, okMessage: String) {
+    func addExternal(_ text: String, into dir: URL, okMessage: String, subject: String? = nil) {
         Task {
-            let ok = await NotesStore.addFromText(dir, text, nil)
+            let ok = await NotesStore.addFromText(dir, text, subject)
             self.reload()
             self.toast(ok ? okMessage : L("Kaydedilemedi", "Couldn't save"))
         }
     }
 
     /// Servisler menüsü: ana listeye ekler (Paylaş → Notlarım).
-    func shareAdd(_ text: String) {
+    /// `subject`: paylaşan uygulamanın (tarayıcı) verdiği sayfa başlığı; yoksa başlık sayfadan alınır.
+    func shareAdd(_ text: String, subject: String? = nil) {
         if text.trimmed.isEmpty { toast(L("Paylaşılacak bir şey bulunamadı", "Nothing to share")); return }
         guard let r = root else { toast(L("Önce Notlarım’ı açın (Link klasörü bulunamadı)", "Open My Notes first (Link folder not found)")); return }
-        addExternal(text, into: r, okMessage: L("Kaydedildi", "Saved"))
+        addExternal(text, into: r, okMessage: L("Kaydedildi", "Saved"), subject: subject)
     }
 
     func handleDrop(_ providers: [NSItemProvider]) -> Bool {

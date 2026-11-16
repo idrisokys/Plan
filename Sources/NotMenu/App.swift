@@ -7,13 +7,6 @@ struct NotMenuApp: App {
     @StateObject private var notes = NotesModel.shared
 
     var body: some Scene {
-        MenuBarExtra {
-            ContentView()
-        } label: {
-            Image(nsImage: MenuIcon.image)
-        }
-        .menuBarExtraStyle(.window)
-
         // Notlarım (eski adıyla Link Cepte): menü çubuğundaki kalem düğmesiyle açılan tek pencere.
         // Tek pencere olduğu için notlarim:// adresi geldiğinde yeni pencere açılmaz.
         Window(L("Notlarım", "My Notes"), id: NotesWindow.id) {
@@ -72,12 +65,52 @@ enum MenuIcon {
     }()
 }
 
+/// Menü çubuğu simgesi: tıklayınca alttaki arama çubuğu görünür, tekrar tıklayınca gizlenir.
+/// Sağ tık (veya ⌃-tık): Notlarım / Çık menüsü.
+@MainActor
+final class StatusItemController: NSObject {
+    static let shared = StatusItemController()
+    private var item: NSStatusItem?
+
+    func install() {
+        guard item == nil else { return }
+        let it = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        it.button?.image = MenuIcon.image
+        it.button?.target = self
+        it.button?.action = #selector(clicked)
+        it.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        item = it
+    }
+
+    @objc private func clicked() {
+        let e = NSApp.currentEvent
+        if e?.type == .rightMouseUp || e?.modifierFlags.contains(.control) == true {
+            let m = NSMenu()
+            let notes = NSMenuItem(title: L("Notlarım", "My Notes"), action: #selector(openNotes), keyEquivalent: "")
+            notes.target = self
+            let quit = NSMenuItem(title: L("Çık", "Quit"), action: #selector(quit), keyEquivalent: "")
+            quit.target = self
+            m.addItem(notes); m.addItem(.separator()); m.addItem(quit)
+            item?.menu = m
+            item?.button?.performClick(nil)
+            item?.menu = nil
+        } else {
+            FloatingBar.shared.toggle()
+        }
+    }
+    @objc private func openNotes() { NotesWindow.show() }
+    @objc private func quit() { NSApp.terminate(nil) }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ n: Notification) {
         NSApp.servicesProvider = ServiceProvider()
         NSUpdateDynamicServices()
         registerShareExtension()
-        Task { @MainActor in FloatingBar.shared.restoreIfWanted() }
+        Task { @MainActor in
+            StatusItemController.shared.install()
+            FloatingBar.shared.show(focus: false)      // arama çubuğu varsayılan olarak sağ altta sabit açılır
+        }
         if UserDefaults.standard.bool(forKey: "qsOn") { QuickShare.shared.start() }
     }
 
@@ -114,8 +147,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 continue
             }
             guard let t = c.queryItems?.first(where: { $0.name == "t" })?.value else { continue }
+            let s = c.queryItems?.first(where: { $0.name == "s" })?.value      // tarayıcının verdiği sayfa başlığı
             Task { @MainActor in
-                NotesModel.shared.shareAdd(t)
+                NotesModel.shared.shareAdd(t, subject: s)
                     }
         }
     }

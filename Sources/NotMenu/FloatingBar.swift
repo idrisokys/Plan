@@ -3,7 +3,7 @@ import AppKit
 
 /// Arama çubuğunu ekranın sağ alt köşesine sabitleyen yüzen panel (ContentView'in aynısı; ortak ekleme/arama kodu).
 /// Dock'un (çöp kutusunun) içine konamaz; bu panel Dock'un üstündeki boş alanın sağ alt köşesinde durur.
-/// Sabitleme tercihi kalıcıdır: uygulama açılınca çubuk yeniden belirir.
+/// Uygulama açılınca varsayılan olarak görünür; menü çubuğu simgesi göster/gizle düğmesidir.
 private final class BarPanel: NSPanel {
     override var canBecomeKey: Bool { true }     // arama kutusuna yazılabilsin
     override var canBecomeMain: Bool { false }
@@ -32,31 +32,26 @@ private final class FitHostingView<V: View>: NSHostingView<V> {
 @MainActor
 final class FloatingBar {
     static let shared = FloatingBar()
-    private static let key = "pinBar"
     private var panel: NSPanel?
     private var host: FitHostingView<ContentView>?
     private let margin: CGFloat = 12
 
-    /// Sabitleme açıkken uygulama açılışında çubuğu gösterir (odağı almadan).
-    func restoreIfWanted() {
-        if UserDefaults.standard.bool(forKey: Self.key) { show(focus: false) }
-    }
+    var isShown: Bool { panel?.isVisible == true }
+
+    /// Menü çubuğu simgesi: görünürse gizler, gizliyse gösterir.
+    func toggle() { if isShown { hide() } else { show() } }
 
     func show(focus: Bool = true) {
-        UserDefaults.standard.set(true, forKey: Self.key)
         if panel == nil { build() }
         place()
         panel?.orderFrontRegardless()
         if focus { panel?.makeKey() }
     }
 
-    func hide() {
-        UserDefaults.standard.set(false, forKey: Self.key)
-        panel?.orderOut(nil)
-    }
+    func hide() { panel?.orderOut(nil) }
 
     private func build() {
-        let h = FitHostingView(rootView: ContentView(floating: true))
+        let h = FitHostingView(rootView: ContentView())
         h.wantsLayer = true
         h.layer?.cornerRadius = 16
         h.layer?.masksToBounds = true

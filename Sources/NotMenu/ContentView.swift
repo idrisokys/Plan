@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 // Koyu zemin, yarı saydam siyah yuvarlak düğmeler.
-// Üst çubuk: [Paylaş] [arama kutusu] [Kalem → Notlarım] [Sabitle] [Kapat]
+// Üst çubuk: [Paylaş] [arama kutusu] [Kalem → Notlarım] [Gizle]
 private let panelBG = Color(white: 0.13)
 private let idleBG = Color.black.opacity(0.45)
 private let onRed = Color(red: 1.0, green: 0.45, blue: 0.45)          // açık kırmızı "ON"
@@ -46,9 +46,8 @@ struct SearchEngine: Codable, Identifiable, Hashable {
 }
 
 struct ContentView: View {
-    /// true: ekranın sağ alt köşesine sabitlenmiş yüzen çubuk (FloatingBar); false: menü çubuğu paneli.
-    var floating = false
-    @Environment(\.openWindow) private var openWindow
+    // Sonuç yazıları Notlarım'ın yazı boyutunu izler (⌘+ / ⌘−)
+    @ObservedObject private var notes = NotesModel.shared
     @ObservedObject private var qs = QuickShare.shared
     @State private var text = ""
     @State private var status = ""
@@ -72,7 +71,6 @@ struct ContentView: View {
         }
         .padding(12)
         .frame(width: 380)
-        .background { if !floating { PopoverNudge() } }
         .background(panelBG)
         .preferredColorScheme(.dark)
         .onAppear { focused = true; search() }
@@ -101,16 +99,11 @@ struct ContentView: View {
                 .background(Capsule().fill(idleBG))
 
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
-            Button { NotesWindow.open(openWindow) } label: { circle("square.and.pencil") }
+            Button { NotesWindow.show() } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help("Notlarım")
-            // Sabitle: arama çubuğunu ekranın sağ alt köşesine yerleştirir (sabit çubukta bu düğme yok)
-            if !floating {
-                Button { FloatingBar.shared.show() } label: { circle("pin") }
-                    .buttonStyle(.plain).help("Ekranın sağ alt köşesine sabitle")
-            }
-            // Kapat: panelde uygulamadan çıkar; sabit çubukta çubuğu gizler
-            Button { if floating { FloatingBar.shared.hide() } else { NSApp.terminate(nil) } } label: { circle("xmark") }
-                .buttonStyle(.plain).help(floating ? "Çubuğu gizle" : "Kapat")
+            // Gizle: çubuğu kapatır (menü çubuğu simgesine tıklayınca tekrar görünür)
+            Button { FloatingBar.shared.hide() } label: { circle("xmark") }
+                .buttonStyle(.plain).help("Gizle (menü çubuğu simgesiyle tekrar aç)")
         }
     }
 
@@ -160,7 +153,7 @@ struct ContentView: View {
                 HitRow(hit: h, onOpen: { open(h) }, onDelete: { delete(h) })
             }
             HStack(spacing: 10) {
-                Text(trimmed).font(.system(size: 19)).foregroundStyle(.white).lineLimit(1)
+                Text(trimmed).font(.system(size: notes.fontSize)).foregroundStyle(.white).lineLimit(1)
                 Spacer(minLength: 4)
                 ForEach(Array(engines.reversed())) { e in
                     Button { run(e) } label: { letterIcon(e.letter, color: .white, heavy: false) }
@@ -242,9 +235,9 @@ struct ContentView: View {
     private func open(_ h: Hit) {
         let m = NotesModel.shared
         if h.entry.isDir {
-            NotesWindow.open(openWindow); m.exitSearch(false); m.setStack(h.path + [h.entry])
+            NotesWindow.show(); m.exitSearch(false); m.setStack(h.path + [h.entry])
         } else if h.entry.isTxt {
-            NotesWindow.open(openWindow); m.open(h.entry)
+            NotesWindow.show(); m.open(h.entry)
         } else {
             m.open(h.entry)
         }
@@ -285,6 +278,7 @@ struct ContentView: View {
 
 /// Panelde arama sonucu satırı; veri Notlarım aramasının `Hit` modelidir, paylaş/kopyala/sil de Notlarım'ın kodunu çağırır.
 struct HitRow: View {
+    @ObservedObject private var notes = NotesModel.shared
     let hit: Hit
     let onOpen: () -> Void
     let onDelete: () -> Void
@@ -303,8 +297,8 @@ struct HitRow: View {
                 .font(.system(size: 15)).foregroundStyle(.white)
                 .frame(width: 34, height: 34).background(Circle().fill(Color.white.opacity(0.12)))
             VStack(alignment: .leading, spacing: 1) {
-                Text(e.title).font(.system(size: 19)).foregroundStyle(.white).lineLimit(1)
-                if !sub.isEmpty { Text(sub).font(.system(size: 14)).foregroundStyle(dim).lineLimit(1) }
+                Text(e.title).font(.system(size: notes.fontSize)).foregroundStyle(.white).lineLimit(1)
+                if !sub.isEmpty { Text(sub).font(.system(size: max(notes.fontSize - 1, 9))).foregroundStyle(dim).lineLimit(1) }
             }
             Spacer(minLength: 4)
             if hover {
@@ -321,30 +315,4 @@ struct HitRow: View {
         .contentShape(Rectangle()).onHover { hover = $0 }
         .onTapGesture { onOpen() }
     }
-}
-
-
-/// Notlarım penceresi açıkken menü çubuğu panelini sola kaydırır; böylece pencerenin sağ kenardaki
-/// kısmını (400 pt) kapatmaz. Pencere kapalıyken panel simgenin altında normal yerinde açılır.
-private struct PopoverNudge: NSViewRepresentable {
-    final class V: NSView {
-        private var obs: NSObjectProtocol?
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            if let o = obs { NotificationCenter.default.removeObserver(o); obs = nil }
-            guard let w = window else { return }
-            obs = NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: w, queue: .main) { _ in
-                Task { @MainActor in
-                    guard NotesWindow.requested, let scr = w.screen ?? NSScreen.main else { return }
-                    let limit = scr.visibleFrame.maxX - WindowDock.size.width - 8
-                    if w.frame.maxX > limit {
-                        w.setFrameOrigin(NSPoint(x: limit - w.frame.width, y: w.frame.origin.y))
-                    }
-                }
-            }
-        }
-        deinit { if let o = obs { NotificationCenter.default.removeObserver(o) } }
-    }
-    func makeNSView(context: Context) -> NSView { V() }
-    func updateNSView(_ nsView: NSView, context: Context) {}
 }

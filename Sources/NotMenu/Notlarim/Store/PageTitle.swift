@@ -63,7 +63,11 @@ enum PageTitle {
         let cs = firstGroup("charset=([\\w-]+)", in: contentType ?? "")
             ?? firstGroup("<meta[^>]+charset=[\"']?([\\w-]+)", in: head)
         let html = String(data: buf, encoding: encoding(cs)) ?? String(decoding: buf, as: UTF8.self)
-        guard let raw = firstGroup("<title[^>]*>(.*?)</title>", in: html, options: [.caseInsensitive, .dotMatchesLineSeparators]) else { return nil }
+        // <title> yoksa (ya da boşsa) og:title / twitter:title meta etiketine bakılır
+        let raw = firstGroup("<title[^>]*>(.*?)</title>", in: html, options: [.caseInsensitive, .dotMatchesLineSeparators])
+            ?? firstGroup("<meta[^>]+(?:property|name)=[\"'](?:og|twitter):title[\"'][^>]+content=[\"']([^\"']+)", in: html)
+            ?? firstGroup("<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+(?:property|name)=[\"'](?:og|twitter):title", in: html)
+        guard let raw = raw else { return nil }
         let t = decodeEntities(raw).replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmed
         if t.isEmpty || badTitles.contains(where: { t.lowercased().hasPrefix($0) }) { return nil }
         return t

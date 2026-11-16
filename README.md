@@ -47,9 +47,9 @@ ShareExtension/          # Safari/Paylaş menüsü eklentisi (ayrı derlenir)
 chrome-extension/        # Chrome eklentisi (uygulamanın içine konur)
 Resources/               # Simgeler, tr/en ServicesMenu.strings
 Sources/NotMenu/
-├── App.swift            # Giriş: MenuBarExtra + Notlarım penceresi (Window), AppDelegate, Hizmetler
-├── ContentView.swift    # Menü çubuğu paneli (ekleme/arama Notlarım ile ortak: NotesStore.submit / searchAsync)
-├── FloatingBar.swift    # Arama çubuğunu ekranın sağ alt köşesine sabitleyen yüzen panel
+├── App.swift            # Giriş: Notlarım penceresi (Window), menü çubuğu simgesi (StatusItemController), AppDelegate, Hizmetler
+├── ContentView.swift    # Arama çubuğu (ekleme/arama Notlarım ile ortak: NotesStore.submit / searchAsync)
+├── FloatingBar.swift    # Arama çubuğunu sağ alt köşeye sabitleyen yüzen panel; menü çubuğu simgesi göster/gizle
 ├── QuickShare.swift     # Hızlı Paylaş
 └── Notlarim/            # Eski Link Cepte kodu (Models, Store, Services, ViewModel, Views, Support)
 Tests/NotMenuTests/      # Notlarım depolama katmanı testleri

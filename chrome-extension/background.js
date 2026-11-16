@@ -14,9 +14,10 @@ function badge(tabId, text, color) {
   setTimeout(() => chrome.action.setBadgeText({ text: '', tabId }), 2000);
 }
 
-async function send(url, tabId) {
+async function send(url, tabId, title) {
   if (!url || !/^https?:\/\//i.test(url)) { badge(tabId, '!', '#c0392b'); return; }
-  const target = 'notlarim://add?t=' + encode(url);
+  let target = 'notlarim://add?t=' + encode(url);
+  if (title && title !== url) target += '&s=' + encode(title);   // sayfa başlığı (tarayıcının bildiği)
   try {
     // Sayfa değişmez: harici uygulama adresleri sekmede açılmaz, doğrudan uygulamaya devredilir.
     await chrome.tabs.update(tabId, { url: target });
@@ -31,7 +32,7 @@ async function send(url, tabId) {
   }
 }
 
-chrome.action.onClicked.addListener(tab => send(tab.url, tab.id));
+chrome.action.onClicked.addListener(tab => send(tab.url, tab.id, tab.title));
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: 'page', title: tr ? "Notlarım'a gönder" : 'Send to My Notes', contexts: ['page'] });
@@ -39,5 +40,6 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  send(info.menuItemId === 'link' ? info.linkUrl : (info.pageUrl || tab.url), tab.id);
+  if (info.menuItemId === 'link') send(info.linkUrl, tab.id);          // başlık bilinmez: uygulama sayfadan alır
+  else send(info.pageUrl || tab.url, tab.id, tab.title);
 });

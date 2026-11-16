@@ -23,15 +23,17 @@ final class StoreFileTests: XCTestCase {
         XCTAssertEqual(NotesStore.readLink(items[0].url).0, "https://example.com")
     }
 
-    func testNewItemsKeepInsertionOrder() {
+    func testNewItemsGoToTop() {
         for t in ["b", "a", "c"] { XCTAssertTrue(NotesStore.addLink(dir, title: t, url: "https://example.com/\(t)")) }
-        XCTAssertEqual(NotesStore.list(dir).map { $0.title }, ["b", "a", "c"])
+        XCTAssertEqual(NotesStore.list(dir).map { $0.title }, ["c", "a", "b"])
+        XCTAssertNotNil(NotesStore.addFolder(dir, "Klasör"))
+        XCTAssertEqual(NotesStore.list(dir).first?.title, "Klasör")
     }
 
     func testDuplicateTitlesGetNumberSuffix() {
         XCTAssertTrue(NotesStore.addLink(dir, title: "b", url: "https://example.com/1"))
         XCTAssertTrue(NotesStore.addLink(dir, title: "b", url: "https://example.com/2"))
-        XCTAssertEqual(NotesStore.list(dir).map { $0.title }, ["b", "b (2)"])
+        XCTAssertEqual(NotesStore.list(dir).map { $0.title }, ["b (2)", "b"])
     }
 
     func testNoteKeepsNewlines() {

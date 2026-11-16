@@ -1,26 +1,14 @@
 import SwiftUI
 import AppKit
 
-final class NoteModel: ObservableObject {
-    static let shared = NoteModel()
-    @Published var notes: [Note] = []
-    func reload() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let n = Store.loadAll()
-            DispatchQueue.main.async { self.notes = n }
-        }
-    }
-}
-
 @main
 struct NotMenuApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
-    @StateObject private var model = NoteModel.shared
     @StateObject private var notes = NotesModel.shared
 
     var body: some Scene {
         MenuBarExtra {
-            ContentView().environmentObject(model)
+            ContentView()
         } label: {
             Image(nsImage: MenuIcon.image)
         }
@@ -88,7 +76,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ n: Notification) {
         NSApp.servicesProvider = ServiceProvider()
         NSUpdateDynamicServices()
-        NoteModel.shared.reload()
         registerShareExtension()
         if UserDefaults.standard.bool(forKey: "qsOn") { QuickShare.shared.start() }
     }
@@ -128,8 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let t = c.queryItems?.first(where: { $0.name == "t" })?.value else { continue }
             Task { @MainActor in
                 NotesModel.shared.shareAdd(t)
-                NoteModel.shared.reload()
-            }
+                    }
         }
     }
 }
@@ -141,7 +127,6 @@ final class ServiceProvider: NSObject {
         let text = pboard.string(forType: .string) ?? ""
         Task { @MainActor in
             NotesModel.shared.shareAdd(text)
-            NoteModel.shared.reload()
-        }
+            }
     }
 }

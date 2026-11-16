@@ -15,15 +15,21 @@ extension NotesModel {
         }
     }
 
-    /// Enter / gönder: link ise link olarak, sınırı aşan metin .txt olarak, kısa metin not olarak kaydedilir.
+    /// Enter / gönder: kural NotesStore.submit'te (menü çubuğu paneli de aynısını kullanır):
+    /// link ise link olarak, sınırı aşan metin .txt olarak, kısa metin not olarak kaydedilir.
     func addFromText() {
         let text = linkText.trimmed
         guard !text.isEmpty, let dir = current else { return }
-        let isUrl = NotesStore.extractUrl(text) != nil
-        let singleUrl = isUrl && !text.contains(where: { $0.isWhitespace })   // boşluksuz uzun link yine link kalır
-        if text.count > addMax && !singleUrl { addTxt(); return }
         linkText = ""
-        addExternal(text, into: dir, okMessage: L("Eklendi", "Added"))
+        Task {
+            let r = await NotesStore.submit(dir, text)
+            self.reload()
+            switch r {
+            case .added:    self.toast(L("Eklendi", "Added"))
+            case .textFile: self.toast(L("Metin dosyası eklendi", "Text file added"))
+            case .failed:   self.toast(L("Kaydedilemedi", "Couldn't save"))
+            }
+        }
     }
 
     /// Satıra uzun basınca metni doğrudan panoya kopyalar (.txt: içerik, link: adres, not: metin, klasör: ad).

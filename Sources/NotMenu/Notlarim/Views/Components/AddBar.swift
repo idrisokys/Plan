@@ -35,7 +35,7 @@ struct AddBar: View {
 
             HStack(spacing: 10) {
                 Text("\(m.linkText.count)/\(m.addMax)")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(m.linkText.count > m.addMax ? Color.red : Color.secondary)
                 Spacer()
                 Image(systemName: "plus")

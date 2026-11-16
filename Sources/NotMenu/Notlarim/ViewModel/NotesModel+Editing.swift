@@ -5,11 +5,12 @@ extension NotesModel {
     // MARK: - Düzenleme
 
     /// "Sil": öğeler silinmez, ana dizindeki gizli .onemsiz klasörüne taşınır.
-    func deleteNow(_ items: [Entry]) {
+    func deleteNow(_ items: [Entry], then: (() -> Void)? = nil) {
         selected = []
         Task {
             let n = await self.io { items.filter { NotesStore.trash($0.url) }.count }
             self.reload()
+            then?()
             self.toast(n == items.count
                 ? L(".onemsiz klasörüne taşındı (\(n))", "Moved to .onemsiz (\(n))")
                 : L("\(n)/\(items.count) öğe .onemsiz'e taşınabildi", "\(n)/\(items.count) items moved to .onemsiz"))

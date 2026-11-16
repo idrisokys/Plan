@@ -36,12 +36,16 @@ final class NotesModel: ObservableObject {
     @Published var askTrashAll = false
 
     // Yazı boyutu (punto): liste, arama sonuçları, alt alanlar ve .txt görünümü bunu kullanır; kalıcıdır.
-    static let minFont = 10.0, maxFont = 32.0, defaultFont = 13.0
+    static let minFont = 10.0, maxFont = 32.0, defaultFont = 15.0
     @Published var fontSize: Double = NotesModel.loadFontSize() {
         didSet { UserDefaults.standard.set(fontSize, forKey: "fontSize") }
     }
     private static func loadFontSize() -> Double {
-        let v = UserDefaults.standard.double(forKey: "fontSize")
+        let d = UserDefaults.standard
+        var v = d.double(forKey: "fontSize")
+        // Yazılar büyütüldü: daha önce kaydedilmiş boyut bir kez +2 yapılır
+        if v != 0 && !d.bool(forKey: "fontBumped2") { v += 2; d.set(v, forKey: "fontSize") }
+        d.set(true, forKey: "fontBumped2")
         return v == 0 ? defaultFont : min(max(v, minFont), maxFont)
     }
     func bumpFont(_ delta: Double) { fontSize = min(max(fontSize + delta, NotesModel.minFont), NotesModel.maxFont) }
@@ -55,7 +59,7 @@ final class NotesModel: ObservableObject {
     /// Ekleme / ad alanı yüksekliği: eski 56–140 pt'ten 3 satır kadar küçük.
     var editorMinHeight: CGFloat { max(30, 56 - 3 * fontSize * 1.25) }
     var editorMaxHeight: CGFloat { max(editorMinHeight, 140 - 3 * fontSize * 1.25) }
-    let addMax = 220     // alttaki ekleme alanı sınırı
+    let addMax = NotesStore.addMax     // alttaki ekleme alanı sınırı (panelle ortak)
     var prevLinkCount = 0   // Enter ile gönderimi algılamak için önceki uzunluk
 
     /// Tüm dosya işlemleri sıralı yapılır.

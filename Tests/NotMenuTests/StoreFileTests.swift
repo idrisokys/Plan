@@ -106,4 +106,23 @@ final class StoreFileTests: XCTestCase {
         let b = NotesStore.search(root: dir, query: "calisma notlari", alive: { true })
         XCTAssertEqual(b.count, 1)
     }
+
+    // Panel ve Notlarım penceresi aynı ekleme / arama kodunu kullanır
+    func testSharedSubmitRules() async {
+        let short = await NotesStore.submit(dir, "kısa bir not")
+        XCTAssertEqual(short, .added)
+        let long = await NotesStore.submit(dir, String(repeating: "uzun metin ", count: 40))
+        XCTAssertEqual(long, .textFile)
+        let items = NotesStore.list(dir)
+        XCTAssertEqual(items.count, 2)
+        XCTAssertEqual(items.filter { $0.isTxt }.count, 1)
+        let empty = await NotesStore.submit(dir, "   ")
+        XCTAssertEqual(empty, .failed)
+    }
+
+    func testSharedSearchAsyncFindsSubmittedNote() async {
+        _ = await NotesStore.submit(dir, "Çiçek sulama notu")
+        let hits = await NotesStore.searchAsync(root: dir, query: "cicek", alive: { true })
+        XCTAssertEqual(hits.count, 1)
+    }
 }

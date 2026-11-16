@@ -48,8 +48,7 @@ chrome-extension/        # Chrome eklentisi (uygulamanın içine konur)
 Resources/               # Simgeler, tr/en ServicesMenu.strings
 Sources/NotMenu/
 ├── App.swift            # Giriş: MenuBarExtra + Notlarım penceresi (Window), AppDelegate, Hizmetler
-├── ContentView.swift    # Menü çubuğu paneli
-├── Store.swift          # Panelin hızlı ekleme/arama katmanı
+├── ContentView.swift    # Menü çubuğu paneli (ekleme/arama Notlarım ile ortak: NotesStore.submit / searchAsync)
 ├── QuickShare.swift     # Hızlı Paylaş
 └── Notlarim/            # Eski Link Cepte kodu (Models, Store, Services, ViewModel, Views, Support)
 Tests/NotMenuTests/      # Notlarım depolama katmanı testleri

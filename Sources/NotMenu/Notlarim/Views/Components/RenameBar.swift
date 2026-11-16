@@ -3,6 +3,7 @@ import AppKit
 
 struct RenameBar: View {
     @EnvironmentObject var m: NotesModel
+    @State private var prevCount = 0
 
     var body: some View {
         VStack(spacing: 6) {
@@ -25,14 +26,23 @@ struct RenameBar: View {
             .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.35)))
             .onChange(of: m.renameText) { v in
+                // Enter doğrudan kaydeder (Shift+Enter yeni satır). Yapıştırma birden fazla karakter ekler, etkilenmez.
+                if v.hasSuffix("\n"), v.count == prevCount + 1, !NSEvent.modifierFlags.contains(.shift) {
+                    m.renameText = String(v.dropLast())
+                    prevCount = m.renameText.count
+                    if !m.renameText.trimmed.isEmpty { m.saveRename() }
+                    return
+                }
+                prevCount = v.count
                 // Uzunluk sınırlanır (.url kayıtlarında 20 000; 220'yi aşan kayıt .txt olur)
                 if v.count > m.editCap { m.renameText = String(v.prefix(m.editCap)) }
             }
             HStack(spacing: 10) {
                 let over = m.renameText.count > m.maxChars
                 Text(over ? "\(m.renameText.count)/\(m.maxChars) → .txt" : "\(m.renameText.count)/\(m.maxChars)")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(over ? Color.red : Color.secondary)
+                DoneEditButton()
                 MoveButtons()
                 Spacer()
                 Button { m.pasteIntoRename() } label: { Image(systemName: "doc.on.clipboard") }

@@ -23,10 +23,8 @@ extension NotesModel {
         searchQuery = q
         hits = nil
         Task { [weak self] in
-            // Ağır tarama arka planda; sonuç ana aktörde (NotesModel @MainActor) yazılır.
-            let r = await Task.detached(priority: .userInitiated) {
-                NotesStore.search(root: rootURL, query: q, alive: { !flag.isCancelled })
-            }.value
+            // Ağır tarama arka planda (ortak NotesStore.searchAsync); sonuç ana aktörde yazılır.
+            let r = await NotesStore.searchAsync(root: rootURL, query: q, alive: { !flag.isCancelled })
             if !flag.isCancelled { self?.hits = r }
         }
     }

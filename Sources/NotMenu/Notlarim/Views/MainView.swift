@@ -16,6 +16,9 @@ struct MainView: View {
         // Başlık sistem başlığı yerine araç çubuğunda durur; simgeler başlıktan hemen sonra sağa doğru sıralanır.
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
+                // Yenile: en solda; Link klasörünü tekrar kontrol eder ve listeyi yeniden yükler (aramada aramayı yeniler)
+                Button { m.refresh() } label: { Image(systemName: "arrow.clockwise") }
+                    .help(L("Yenile (⌘R)", "Refresh (⌘R)"))
                 if m.searchQuery != nil {
                     Button { m.exitSearch(true) } label: { Image(systemName: "chevron.left") }
                         .help(L("Aramadan çık", "Exit search"))
@@ -35,9 +38,6 @@ struct MainView: View {
                     }
                     .disabled(m.syncing)
                     .help(L("Cihazlarla eşitle", "Sync with devices"))
-                    // Yenile: Link klasörünü tekrar kontrol eder ve listeyi yeniden yükler
-                    Button { m.refresh() } label: { Image(systemName: "arrow.clockwise") }
-                        .help(L("Yenile", "Refresh"))
                 }
                 // İkonların SAĞINDA; "Notlarım" başlığı gösterilmez, yalnızca klasör içindeyken / arama ve seçim sırasında bilgi yazısı çıkar
                 if m.title != L("Notlarım", "My Notes") {

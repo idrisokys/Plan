@@ -1,5 +1,15 @@
 import SwiftUI
 
+/// Onay (✓): düzenlemeyi bitirir (seçim kalkar; yazılıp kaydedilmemiş ad değişikliği uygulanmaz).
+struct DoneEditButton: View {
+    @EnvironmentObject var m: NotesModel
+    var body: some View {
+        Button { m.editMode = false; m.selected = [] } label: { Image(systemName: "checkmark.circle.fill") }
+            .foregroundStyle(Color.accentColor)
+            .help(L("Tamam: düzenlemeyi bitir", "Done: finish editing"))
+    }
+}
+
 /// Düzenleme modunda seçili öğeler için: başa al, yukarı, aşağı, sona al.
 struct MoveButtons: View {
     @EnvironmentObject var m: NotesModel
@@ -24,8 +34,9 @@ struct MultiBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text("\(m.selected.count) " + L("seçili", "selected")).font(.caption).foregroundStyle(.secondary)
+            Text("\(m.selected.count) " + L("seçili", "selected")).font(.footnote).foregroundStyle(.secondary)
             Spacer()
+            DoneEditButton()
             MoveButtons()
         }
         .frame(height: 30)

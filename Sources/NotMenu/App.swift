@@ -77,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.servicesProvider = ServiceProvider()
         NSUpdateDynamicServices()
         registerShareExtension()
+        Task { @MainActor in FloatingBar.shared.restoreIfWanted() }
         if UserDefaults.standard.bool(forKey: "qsOn") { QuickShare.shared.start() }
     }
 

@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 // Koyu zemin, yarı saydam siyah yuvarlak düğmeler.
-// Üst çubuk: [Paylaş] [arama kutusu] [Kalem → Notlarım] [Kapat]
+// Üst çubuk: [Paylaş] [arama kutusu] [Kalem → Notlarım] [Sabitle] [Kapat]
 private let panelBG = Color(white: 0.13)
 private let idleBG = Color.black.opacity(0.45)
 private let onRed = Color(red: 1.0, green: 0.45, blue: 0.45)          // açık kırmızı "ON"
@@ -46,6 +46,8 @@ struct SearchEngine: Codable, Identifiable, Hashable {
 }
 
 struct ContentView: View {
+    /// true: ekranın sağ alt köşesine sabitlenmiş yüzen çubuk (FloatingBar); false: menü çubuğu paneli.
+    var floating = false
     @Environment(\.openWindow) private var openWindow
     @ObservedObject private var qs = QuickShare.shared
     @State private var text = ""
@@ -69,11 +71,15 @@ struct ContentView: View {
             if !trimmed.isEmpty { searchResults }
         }
         .padding(12)
-        .frame(width: 340)
-        .background(PopoverNudge())
+        .frame(width: 380)
+        .background { if !floating { PopoverNudge() } }
         .background(panelBG)
         .preferredColorScheme(.dark)
         .onAppear { focused = true; search() }
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+            let e = SearchEngine.load()
+            if e != engines { engines = e }          // panel ve sabit çubuk aynı arama motorlarını gösterir
+        }
         .onChange(of: text) { _ in search() }
         .onReceive(qs.$message) { if !$0.isEmpty { flash($0) } }
     }
@@ -97,9 +103,14 @@ struct ContentView: View {
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
             Button { NotesWindow.open(openWindow) } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help("Notlarım")
-            // Kapat: uygulamadan çıkar
-            Button { NSApp.terminate(nil) } label: { circle("xmark") }
-                .buttonStyle(.plain).help("Kapat")
+            // Sabitle: arama çubuğunu ekranın sağ alt köşesine yerleştirir (sabit çubukta bu düğme yok)
+            if !floating {
+                Button { FloatingBar.shared.show() } label: { circle("pin") }
+                    .buttonStyle(.plain).help("Ekranın sağ alt köşesine sabitle")
+            }
+            // Kapat: panelde uygulamadan çıkar; sabit çubukta çubuğu gizler
+            Button { if floating { FloatingBar.shared.hide() } else { NSApp.terminate(nil) } } label: { circle("xmark") }
+                .buttonStyle(.plain).help(floating ? "Çubuğu gizle" : "Kapat")
         }
     }
 

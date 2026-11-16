@@ -49,6 +49,7 @@ Resources/               # Simgeler, tr/en ServicesMenu.strings
 Sources/NotMenu/
 ├── App.swift            # Giriş: MenuBarExtra + Notlarım penceresi (Window), AppDelegate, Hizmetler
 ├── ContentView.swift    # Menü çubuğu paneli (ekleme/arama Notlarım ile ortak: NotesStore.submit / searchAsync)
+├── FloatingBar.swift    # Arama çubuğunu ekranın sağ alt köşesine sabitleyen yüzen panel
 ├── QuickShare.swift     # Hızlı Paylaş
 └── Notlarim/            # Eski Link Cepte kodu (Models, Store, Services, ViewModel, Views, Support)
 Tests/NotMenuTests/      # Notlarım depolama katmanı testleri

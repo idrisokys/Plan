@@ -64,10 +64,12 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            bar
+            // Çubuk ekranın altında sabit: arama kutusu en altta, sonuçlar ondan yukarı doğru dizilir
+            // (panel sağ alt köşe sabit kalıp yukarı büyür).
+            if !trimmed.isEmpty { searchResults }
             if qs.running { devicesList }
             if !status.isEmpty { Text(status).font(.footnote).foregroundStyle(dim) }
-            if !trimmed.isEmpty { searchResults }
+            bar
         }
         .padding(12)
         .frame(width: 380)
@@ -145,13 +147,11 @@ struct ContentView: View {
         .background(RoundedRectangle(cornerRadius: 14).fill(menuBG))
     }
 
-    // MARK: Arama sonuçları: en çok 3 sonuç + (sorgu · eklenen motorlar · +) satırı
+    // MARK: Arama sonuçları — alttan üste: [arama kutusu] ← en iyi sonuç ← … ← (sorgu · eklenen motorlar · +) ← motor ekleme paneli
     // Motorlar + düğmesinin SOLUNDA durur: + en sağda, yeni eklenen motor en solda (sola doğru büyür).
     private var searchResults: some View {
         VStack(spacing: 0) {
-            ForEach(hits.prefix(3)) { h in
-                HitRow(hit: h, onOpen: { open(h) }, onDelete: { delete(h) })
-            }
+            if addOpen { addEnginePanel }
             HStack(spacing: 10) {
                 Text(trimmed).font(.system(size: notes.fontSize)).foregroundStyle(.white).lineLimit(1)
                 Spacer(minLength: 4)
@@ -165,8 +165,11 @@ struct ContentView: View {
                         .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.2)))
                 }
                 .buttonStyle(.plain).help("Arama motoru ekle")
-            }.padding(.horizontal, 8).padding(.top, 6)
-            if addOpen { addEnginePanel }
+            }.padding(.horizontal, 8).padding(.vertical, 6)
+            // En iyi sonuç arama kutusuna en yakın (altta); diğerleri yukarı doğru sıralanır
+            ForEach(Array(hits.prefix(3).reversed())) { h in
+                HitRow(hit: h, onOpen: { open(h) }, onDelete: { delete(h) })
+            }
         }
     }
 
@@ -191,7 +194,7 @@ struct ContentView: View {
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 14).fill(menuBG))
-        .padding(.top, 8)
+        .padding(.bottom, 8)
     }
 
     private func field(_ prompt: String, _ b: Binding<String>) -> some View {

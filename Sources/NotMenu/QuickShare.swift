@@ -6,12 +6,21 @@ import UserNotifications
 ///  - mDNS: `_qshare._tcp`, servis adı "QS"+kimlik[0..10], TXT: n=cihaz adı, i=kimlik
 ///  - Alma: düz TCP, `POST /u` + `X-Name` (URL kodlu ad) + `Content-Length`, yanıt `HTTP/1.1 200 OK`
 /// Telefon/TV, aynı ağdaki açık Mac'i bulur ve dosyayı doğrudan gönderir.
+struct QSDevice: Identifiable, Hashable {
+    let id: String          // Bonjour servis adı
+    let name: String        // TXT "n" (cihaz adı)
+    let endpoint: NWEndpoint
+}
+
 final class QuickShare: ObservableObject {
     static let shared = QuickShare()
     @Published var running = false
     @Published var message = ""
+    @Published var devices: [QSDevice] = []
+    @Published var sendingTo = Set<String>()
 
     private var listener: NWListener?
+    private var browser: NWBrowser?
     private var conns = Set<ConnHandler>()
 
     static var identity: String {
@@ -52,11 +61,101 @@ final class QuickShare: ObservableObject {
         listener = l
         UserDefaults.standard.set(true, forKey: "qsOn")
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
+        startBrowsing()
     }
 
     func stop() {
         listener?.cancel(); listener = nil; running = false
         UserDefaults.standard.set(false, forKey: "qsOn")
+        browser?.cancel(); browser = nil
+        devices = []
+    }
+
+    // MARK: Açık cihazları bul (aynı ağda _qshare._tcp yayınlayanlar)
+    private func startBrowsing() {
+        browser?.cancel()
+        let b = NWBrowser(for: .bonjourWithTXTRecord(type: "_qshare._tcp", domain: nil), using: .tcp)
+        let myName = "QS" + String(Self.identity.prefix(10))
+        b.browseResultsChangedHandler = { [weak self] results, _ in
+            var out: [QSDevice] = []
+            for r in results {
+                guard case let .service(name, _, _, _) = r.endpoint else { continue }
+                var title = name, id = ""
+                if case let .bonjour(txt) = r.metadata {
+                    title = txt.dictionary["n"] ?? name
+                    id = txt.dictionary["i"] ?? ""
+                }
+                if name == myName || id == Self.identity { continue }   // kendimizi listeleme
+                out.append(QSDevice(id: name, name: title, endpoint: r.endpoint))
+            }
+            out.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            DispatchQueue.main.async { self?.devices = out }
+        }
+        b.start(queue: .global(qos: .userInitiated))
+        browser = b
+    }
+
+    // MARK: Dosya gönder (alıcı tarafın beklediği: POST /u + X-Name + Content-Length)
+    func send(_ files: [URL], to d: QSDevice) {
+        guard !files.isEmpty else { return }
+        DispatchQueue.main.async { self.sendingTo.insert(d.id) }
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
+            var okCount = 0
+            for f in files { if Self.sendOne(f, to: d.endpoint) { okCount += 1 } }
+            DispatchQueue.main.async { self.sendingTo.remove(d.id) }
+            if okCount == files.count {
+                post(files.count == 1 ? "Gönderildi: \(files[0].lastPathComponent)" : "\(okCount) dosya gönderildi → \(d.name)")
+            } else {
+                post("Gönderilemedi (\(files.count - okCount) dosya) → \(d.name)")
+            }
+        }
+    }
+
+    private static func sendOne(_ url: URL, to endpoint: NWEndpoint) -> Bool {
+        guard let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
+              let fh = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? fh.close() }
+
+        let conn = NWConnection(to: endpoint, using: .tcp)
+        let q = DispatchQueue(label: "qs.tx")
+        let readySem = DispatchSemaphore(value: 0)
+        var isReady = false
+        conn.stateUpdateHandler = { st in
+            switch st {
+            case .ready: isReady = true; readySem.signal()
+            case .failed, .cancelled: readySem.signal()
+            default: break
+            }
+        }
+        conn.start(queue: q)
+        defer { conn.cancel() }
+        guard readySem.wait(timeout: .now() + 8) == .success, isReady else { return false }
+
+        func push(_ data: Data) -> Bool {
+            let sem = DispatchSemaphore(value: 0)
+            var good = true
+            conn.send(content: data, completion: .contentProcessed { err in if err != nil { good = false }; sem.signal() })
+            sem.wait()
+            return good
+        }
+
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+        let encName = url.lastPathComponent.addingPercentEncoding(withAllowedCharacters: allowed) ?? "file"
+        let head = "POST /u HTTP/1.1\r\nHost: qs\r\nX-Name: \(encName)\r\nContent-Type: application/octet-stream\r\nContent-Length: \(size)\r\nConnection: close\r\n\r\n"
+        guard push(Data(head.utf8)) else { return false }
+        while true {
+            guard let chunk = try? fh.read(upToCount: 1 << 20), !chunk.isEmpty else { break }
+            guard push(chunk) else { return false }
+        }
+
+        let rsem = DispatchSemaphore(value: 0)
+        var reply = ""
+        conn.receive(minimumIncompleteLength: 1, maximumLength: 512) { data, _, _, _ in
+            if let d = data { reply = String(decoding: d, as: UTF8.self) }
+            rsem.signal()
+        }
+        guard rsem.wait(timeout: .now() + 30) == .success else { return false }
+        return reply.hasPrefix("HTTP/1.1 200") || reply.hasPrefix("HTTP/1.0 200")
     }
 
     func toggle() { running ? stop() : start() }

@@ -17,11 +17,25 @@ struct NotMenuApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var model = NoteModel.shared
     var body: some Scene {
-        MenuBarExtra("Notlarım", systemImage: "magnifyingglass.circle") {
+        MenuBarExtra {
             ContentView().environmentObject(model)
+        } label: {
+            Image(nsImage: MenuIcon.image)
         }
         .menuBarExtraStyle(.window)
     }
+}
+
+/// Menü çubuğu simgesi: uygulama ana simgesinin küçüğü (Resources/MenuIcon.png, 44px = 22pt @2x).
+enum MenuIcon {
+    static let image: NSImage = {
+        let img = Bundle.main.url(forResource: "MenuIcon", withExtension: "png").flatMap { NSImage(contentsOf: $0) }
+            ?? NSImage(systemSymbolName: "magnifyingglass.circle", accessibilityDescription: "Notlarım")
+            ?? NSImage()
+        img.size = NSSize(width: 20, height: 20)
+        img.isTemplate = false      // renkli kalsın (ana simgenin küçüğü)
+        return img
+    }()
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {

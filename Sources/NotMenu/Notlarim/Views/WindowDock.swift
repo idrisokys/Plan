@@ -1,10 +1,10 @@
 import SwiftUI
 import AppKit
 
-/// Pencere ilk açıldığında içerik alanını 300 × 450 yapar ve ekranın sağ kenarına (üste) tutturur.
+/// Pencere ilk açıldığında içerik alanını 400 × 600 yapar ve ekranın sağ kenarına (üste) tutturur.
 /// Pencere kullanıcı istemeden (uygulama açılışında) belirmişse kapatır; kapanınca Dock simgesini kaldırır.
 struct WindowDock: NSViewRepresentable {
-    static let size = NSSize(width: 300, height: 450)
+    static let size = NSSize(width: 400, height: 600)
 
     final class DockView: NSView {
         private var done = false
@@ -21,6 +21,7 @@ struct WindowDock: NSViewRepresentable {
             DispatchQueue.main.async {
                 if !NotesWindow.requested { w.close(); return }
                 w.isRestorable = false
+                w.titleVisibility = .hidden   // başlık araç çubuğunda gösterilir
                 w.setContentSize(WindowDock.size)
                 guard let scr = w.screen ?? NSScreen.main else { return }
                 let vf = scr.visibleFrame

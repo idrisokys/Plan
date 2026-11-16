@@ -9,8 +9,8 @@ private let onRed = Color(red: 1.0, green: 0.45, blue: 0.45)          // açık 
 private let menuBG = Color(red: 0.165, green: 0.165, blue: 0.165)
 private let dim = Color.white.opacity(0.67)
 
-private func circle(_ system: String, size: CGFloat = 40) -> some View {
-    Image(systemName: system).font(.system(size: 16, weight: .medium)).foregroundStyle(.white)
+private func circle(_ system: String, size: CGFloat = 36) -> some View {
+    Image(systemName: system).font(.system(size: 14, weight: .medium)).foregroundStyle(.white)
         .frame(width: size, height: size)
         .background(Circle().fill(idleBG))
 }
@@ -68,7 +68,8 @@ struct ContentView: View {
             if !trimmed.isEmpty { searchResults }
         }
         .padding(12)
-        .frame(width: 430)
+        .frame(width: 340)
+        .background(PopoverNudge())
         .background(panelBG)
         .preferredColorScheme(.dark)
         .onAppear { model.reload(); focused = true }
@@ -85,10 +86,10 @@ struct ContentView: View {
                 .onLongPressGesture { NSWorkspace.shared.open(QuickShare.receiveDir) }
                 .help("Hızlı Paylaş: dokun aç/kapat, basılı tut klasörü aç")
 
-            TextField("", text: $text, prompt: Text("Ara; Enter ile link / metin ekle").foregroundColor(dim))
-                .textFieldStyle(.plain).font(.system(size: 16)).foregroundStyle(.white)
+            TextField("", text: $text, prompt: Text("Ara; Enter ile ekle").foregroundColor(dim))
+                .textFieldStyle(.plain).font(.system(size: 14)).foregroundStyle(.white)
                 .lineLimit(1).focused($focused).onSubmit(submit)
-                .padding(.horizontal, 16).frame(height: 44)
+                .padding(.horizontal, 14).frame(height: 38)
                 .background(Capsule().fill(idleBG))
 
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
@@ -103,7 +104,7 @@ struct ContentView: View {
     @ViewBuilder private var shareButton: some View {
         if qs.running {
             Text("ON").font(.system(size: 13, weight: .heavy)).foregroundStyle(onRed)
-                .frame(width: 40, height: 40)
+                .frame(width: 36, height: 36)
                 .background(Circle().fill(onRed.opacity(0.18)))
                 .overlay(Circle().stroke(onRed.opacity(0.8), lineWidth: 1.5))
         } else {
@@ -258,4 +259,30 @@ struct NoteRow: View {
     private func copy() {
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(note.body, forType: .string); onStatus("Kopyalandı")
     }
+}
+
+
+/// Notlarım penceresi açıkken menü çubuğu panelini sola kaydırır; böylece pencerenin sağ kenardaki
+/// kısmını (400 pt) kapatmaz. Pencere kapalıyken panel simgenin altında normal yerinde açılır.
+private struct PopoverNudge: NSViewRepresentable {
+    final class V: NSView {
+        private var obs: NSObjectProtocol?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let o = obs { NotificationCenter.default.removeObserver(o); obs = nil }
+            guard let w = window else { return }
+            obs = NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: w, queue: .main) { _ in
+                Task { @MainActor in
+                    guard NotesWindow.requested, let scr = w.screen ?? NSScreen.main else { return }
+                    let limit = scr.visibleFrame.maxX - WindowDock.size.width - 8
+                    if w.frame.maxX > limit {
+                        w.setFrameOrigin(NSPoint(x: limit - w.frame.width, y: w.frame.origin.y))
+                    }
+                }
+            }
+        }
+        deinit { if let o = obs { NotificationCenter.default.removeObserver(o) } }
+    }
+    func makeNSView(context: Context) -> NSView { V() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }

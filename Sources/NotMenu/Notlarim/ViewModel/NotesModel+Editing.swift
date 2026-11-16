@@ -16,17 +16,17 @@ extension NotesModel {
         }
     }
 
-    /// Bilgi (i) simgesine basılı tutunca: Link klasöründeki her şey (silinmez) .onemsiz klasörüne taşınır.
-    func moveAllToOnemsiz() {
+    /// Çöp kutusu düğmesi: Link klasöründeki her şey macOS Çöp Kutusu'na gönderilir (oradan geri alınabilir).
+    func trashAllToBin() {
         guard let r = root else { toast(L("Link klasörü bulunamadı", "Link folder not found")); return }
         Task {
-            let (n, total) = await self.io { NotesStore.trashAll(in: r) }
+            let (n, total) = await self.io { NotesStore.trashAllToBin(in: r) }
             self.selected = []
             self.editMode = false
             self.setStack([])
             self.toast(total == 0 ? L("Link klasöründe öğe yok", "The Link folder is empty")
-                : n == total ? L(".onemsiz klasörüne taşındı (\(n))", "Moved to .onemsiz (\(n))")
-                : L("\(n)/\(total) öğe .onemsiz'e taşınabildi", "\(n)/\(total) items moved to .onemsiz"))
+                : n == total ? L("Çöp Kutusu'na gönderildi (\(n))", "Moved to Trash (\(n))")
+                : L("\(n)/\(total) öğe Çöp Kutusu'na gönderilebildi", "\(n)/\(total) items moved to Trash"))
         }
     }
 

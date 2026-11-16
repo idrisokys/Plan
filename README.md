@@ -21,12 +21,13 @@ Tek uygulama, iki parça:
 
 ## Notlarım penceresi
 
-Pencere 300 × 450 açılır ve ekranın sağ kenarına tutturulur. Açıkken uygulama Dock'ta ve menü çubuğunda (Notlarım menüsü,
+Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Açıkken uygulama Dock'ta ve menü çubuğunda (Notlarım menüsü,
 ⌘ kısayolları) görünür; pencere kapanınca yeniden yalnızca menü çubuğunda kalır.
 
 - Notlar `~/Link` klasöründe; Android'deki Link klasörüyle aynı biçim. Klasörler, yeniden adlandırma, taşıma, sıralama.
-- Satırın sağındaki ⋮: Taşı / Paylaş / Sil (birden çok seçiliyse hepsine); ⋮ basılı tutunca düzenleme modu.
-- Sil = silmez; `~/.onemsiz` gizli klasörüne taşır. Bilgi (i) basılı tutulunca Link klasöründeki her şey oraya taşınır.
+- Satırın sağındaki ⋮: Düzenle / Taşı / Paylaş / Sil (birden çok seçiliyse hepsine); ⋮ basılı tutunca düzenleme modu.
+- Sil = silmez; `~/.onemsiz` gizli klasörüne taşır. Araç çubuğundaki **çöp kutusu** (klasör ekle simgesinin yanında) onay sorup Link klasöründeki her şeyi macOS Çöp Kutusu'na gönderir.
+- Araç çubuğu: başlığın hemen sağında klasör ekle, çöp kutusu, eşitle, yenile. Menü çubuğu paneli Notlarım açıkken pencereyi kapatmasın diye sola kayar.
 - Kısa not satırına tıklamak metni panoya kopyalar; satıra uzun basmak kopyalar.
 - `.txt` içinde arama (⌘F), eşleşmeler işaretli, ▲▼ ile gezinme.
 - Eşitle (⇄, ⌘⇧S): aynı ağdaki açık Hızlı Paylaş cihazlarıyla `~/Link` içeriğini eşitler.

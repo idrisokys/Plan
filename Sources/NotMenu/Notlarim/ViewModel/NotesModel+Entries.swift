@@ -20,6 +20,11 @@ extension NotesModel {
         selected = []
     }
 
+    /// ⋮ menüsündeki "Düzenle": düzenleme modunu açar (kapalıysa); açıksa açık bırakır.
+    func beginEdit() {
+        if !editMode { editMode = true; selected = [] }
+    }
+
     func open(_ e: Entry) {
         Task {
             if e.isTxt {

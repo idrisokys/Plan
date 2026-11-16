@@ -32,6 +32,8 @@ final class NotesModel: ObservableObject {
     @Published var txtCur = 0
     // Üstteki eşitle tuşu: devam eden eşitleme
     @Published var syncing = false
+    // Çöp kutusu düğmesi: onay sorusu
+    @Published var askTrashAll = false
 
     // Yazı boyutu (punto): liste, arama sonuçları, alt alanlar ve .txt görünümü bunu kullanır; kalıcıdır.
     static let minFont = 10.0, maxFont = 32.0, defaultFont = 13.0

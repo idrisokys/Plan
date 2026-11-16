@@ -31,7 +31,7 @@ struct NotMenuApp: App {
         Window(L("Notlarım", "My Notes"), id: NotesWindow.id) {
             NotesRoot().environmentObject(notes)
         }
-        .defaultSize(width: 300, height: 450)
+        .defaultSize(width: 400, height: 600)
         .commands {
             CommandGroup(replacing: .newItem) { }
             CommandMenu(L("Notlarım", "My Notes")) {

@@ -24,7 +24,7 @@ for l in tr en; do
   cp "Resources/$l.lproj/ServicesMenu.strings" "$APP/Contents/Resources/$l.lproj/"
 done
 
-# Uygulama simgesi (AppIcon.png → .icns), menü çubuğu simgesi ve Notlarım bilgi simgesi
+# Uygulama simgesi (AppIcon.png → .icns) ve menü çubuğu simgesi
 ICONSET="$(mktemp -d)/AppIcon.iconset"; mkdir -p "$ICONSET"
 for s in 16 32 128 256 512; do
   sips -z $s $s Resources/AppIcon.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
@@ -32,7 +32,6 @@ for s in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 cp Resources/MenuIcon.png "$APP/Contents/Resources/MenuIcon.png"
-cp Resources/releases_icon.png "$APP/Contents/Resources/releases_icon.png"
 
 # Paylaş eklentisi (Safari Paylaş menüsü). Derlenemezse uygulama eklentisiz devam eder.
 if bash scripts/build_share.sh "$APP"; then

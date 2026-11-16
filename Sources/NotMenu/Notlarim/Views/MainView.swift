@@ -14,6 +14,7 @@ struct MainView: View {
             else { AddBar() }
         }
         .navigationTitle(m.title)
+        // Başlık sistem başlığı yerine araç çubuğunda durur; simgeler başlıktan hemen sonra sağa doğru sıralanır.
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
                 if m.searchQuery != nil {
@@ -23,11 +24,14 @@ struct MainView: View {
                     Button { m.goBack() } label: { Image(systemName: "chevron.left") }
                         .help(L("Geri", "Back"))
                 }
-            }
-            ToolbarItemGroup(placement: .primaryAction) {
+                Text(m.title).font(.headline).lineLimit(1).truncationMode(.tail)
+                    .frame(maxWidth: 160, alignment: .leading)
                 if m.searchQuery == nil {
                     Button { m.sheet = .folder } label: { Image(systemName: "folder.badge.plus") }
                         .help(L("Klasör", "Folder"))
+                    // Çöp kutusu: Link klasöründeki her şeyi macOS Çöp Kutusu'na gönderir (önce sorar)
+                    Button { m.askTrashAll = true } label: { Image(systemName: "trash") }
+                        .help(L("Tüm notları Çöp Kutusu'na gönder", "Send all notes to Trash"))
                     // Eşitle: aynı ağdaki açık cihazlarla (Hızlı Paylaş) notları eşitler
                     Button { m.syncNow() } label: {
                         if m.syncing { ProgressView().controlSize(.small) } else { Image(systemName: "arrow.triangle.2.circlepath") }
@@ -37,10 +41,15 @@ struct MainView: View {
                     // Yenile: Link klasörünü tekrar kontrol eder ve listeyi yeniden yükler
                     Button { m.refresh() } label: { Image(systemName: "arrow.clockwise") }
                         .help(L("Yenile", "Refresh"))
-                    // En sağda: bilgi (i) ikonu; küçük menü açar
-                    InfoButton()
                 }
             }
+        }
+        .confirmationDialog(L("Link klasöründeki tüm dosyalar Çöp Kutusu'na gönderilsin mi?", "Send everything in the Link folder to Trash?"),
+                            isPresented: $m.askTrashAll, titleVisibility: .visible) {
+            Button(L("Çöp Kutusu'na gönder", "Send to Trash"), role: .destructive) { m.trashAllToBin() }
+            Button(L("Vazgeç", "Cancel"), role: .cancel) { }
+        } message: {
+            Text(L("Notlar, linkler ve klasörler Çöp Kutusu'na taşınır; oradan geri alabilirsiniz.", "Notes, links and folders are moved to the Trash; you can restore them from there."))
         }
         .sheet(item: $m.sheet) { s in
             switch s {
@@ -94,6 +103,8 @@ struct MainView: View {
             Spacer(minLength: 8)
             // Üç nokta: tek tıkla menü (Taşı / Paylaş / Sil); basılı tutunca düzenleme modu açılır/kapanır
             Menu {
+                Button(L("Düzenle", "Edit")) { m.beginEdit() }
+                Divider()
                 Button(L("Taşı", "Move")) { m.beginMove(targets) }
                 Button(L("Paylaş", "Share")) { m.shareEntries(targets) }
                 Button(L("Sil", "Delete")) { m.deleteNow(targets) }

@@ -275,11 +275,16 @@ enum NotesStore {
         do { try fm.moveItem(at: url, to: t); return true } catch { return false }
     }
 
-    /// Link klasöründeki her şeyi (gizli dosyalar dahil) .onemsiz klasörüne taşır; (taşınan, toplam) döndürür.
-    static func trashAll(in root: URL) -> (Int, Int) {
-        let names = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
+    /// Link klasöründeki her şeyi (gizli dosyalar dahil) macOS Çöp Kutusu'na gönderir; (gönderilen, toplam) döndürür.
+    /// .DS_Store sayılmaz.
+    static func trashAllToBin(in root: URL) -> (Int, Int) {
+        lock.lock(); defer { lock.unlock() }
+        let fm = FileManager.default
+        let names = ((try? fm.contentsOfDirectory(atPath: root.path)) ?? []).filter { $0 != ".DS_Store" }
         var n = 0
-        for name in names where trash(root.appendingPathComponent(name)) { n += 1 }
+        for name in names {
+            if (try? fm.trashItem(at: root.appendingPathComponent(name), resultingItemURL: nil)) != nil { n += 1 }
+        }
         return (n, names.count)
     }
 

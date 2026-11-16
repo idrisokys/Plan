@@ -88,9 +88,14 @@ final class StatusItemController: NSObject {
             let m = NSMenu()
             let notes = NSMenuItem(title: L("Notlarım", "My Notes"), action: #selector(openNotes), keyEquivalent: "")
             notes.target = self
+            let rec = NSMenuItem(title: L("Kayıt yeri", "Save Location"), action: #selector(chooseSaveLocation), keyEquivalent: "")
+            rec.target = self
+            rec.toolTip = QuickShare.receiveDir.path
+            let folder = NSMenuItem(title: L("Notlarım klasörü", "My Notes Folder"), action: #selector(openNotesFolder), keyEquivalent: "")
+            folder.target = self
             let quit = NSMenuItem(title: L("Çık", "Quit"), action: #selector(quit), keyEquivalent: "")
             quit.target = self
-            m.addItem(notes); m.addItem(.separator()); m.addItem(quit)
+            m.addItem(notes); m.addItem(rec); m.addItem(folder); m.addItem(.separator()); m.addItem(quit)
             item?.menu = m
             item?.button?.performClick(nil)
             item?.menu = nil
@@ -99,6 +104,23 @@ final class StatusItemController: NSObject {
         }
     }
     @objc private func openNotes() { NotesWindow.show() }
+
+    /// Paylaşımla gelen dosyaların kaydedileceği klasörü seçtirir (UserDefaults "recvDir").
+    @objc private func chooseSaveLocation() {
+        NSApp.activate(ignoringOtherApps: true)
+        let p = NSOpenPanel()
+        p.canChooseFiles = false; p.canChooseDirectories = true; p.canCreateDirectories = true
+        p.allowsMultipleSelection = false
+        p.directoryURL = QuickShare.receiveDir
+        p.prompt = L("Seç", "Choose")
+        p.message = L("Paylaşımla gelen dosyaların kaydedileceği klasörü seç", "Choose where received files are saved")
+        if p.runModal() == .OK, let u = p.url { UserDefaults.standard.set(u.path, forKey: "recvDir") }
+    }
+
+    /// Notlarımın kayıtlı olduğu klasörü Finder'da açar.
+    @objc private func openNotesFolder() {
+        if let r = NotesStore.root { NSWorkspace.shared.open(r) }
+    }
     @objc private func quit() { NSApp.terminate(nil) }
 }
 

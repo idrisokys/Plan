@@ -103,9 +103,9 @@ struct ContentView: View {
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
             Button { NotesWindow.toggle() } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help("Notlarım (aç/kapat)")
-            // Gizle: çubuğu kapatır (menü çubuğu simgesine tıklayınca tekrar görünür)
-            Button { FloatingBar.shared.hide() } label: { circle("xmark") }
-                .buttonStyle(.plain).help("Gizle (menü çubuğu simgesiyle tekrar aç)")
+            // Kapat: uygulamayı tamamen kapatır
+            Button { NSApp.terminate(nil) } label: { circle("xmark") }
+                .buttonStyle(.plain).help("Uygulamayı kapat")
         }
     }
 
@@ -159,6 +159,9 @@ struct ContentView: View {
                     .font(.system(size: 13)).foregroundStyle(dim).lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 0)
             }.padding(.horizontal, 12).padding(.vertical, 8)
+            .contentShape(Rectangle())
+            .onTapGesture { if let f = i?.folder { NSWorkspace.shared.open(f) } }     // "Alındı" satırı: kayıt klasörünü aç
+            .help(i?.folder != nil ? "Kayıt klasörünü aç" : "")
         }
     }
 

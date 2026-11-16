@@ -16,9 +16,11 @@ struct MainView: View {
         // Başlık sistem başlığı yerine araç çubuğunda durur; simgeler başlıktan hemen sonra sağa doğru sıralanır.
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
-                // Yenile: en solda; Link klasörünü tekrar kontrol eder ve listeyi yeniden yükler (aramada aramayı yeniler)
-                Button { m.refresh() } label: { Image(systemName: "arrow.clockwise") }
-                    .help(L("Yenile (⌘R)", "Refresh (⌘R)"))
+                // Aramada yenile en solda (aramayı yeniler); normal görünümde çöp kutusunun soluna taşınır
+                if m.searchQuery != nil {
+                    Button { m.refresh() } label: { Image(systemName: "arrow.clockwise") }
+                        .help(L("Yenile (⌘R)", "Refresh (⌘R)"))
+                }
                 if m.searchQuery != nil {
                     Button { m.exitSearch(true) } label: { Image(systemName: "chevron.left") }
                         .help(L("Aramadan çık", "Exit search"))
@@ -29,6 +31,9 @@ struct MainView: View {
                 if m.searchQuery == nil {
                     Button { m.sheet = .folder } label: { Image(systemName: "folder.badge.plus") }
                         .help(L("Klasör", "Folder"))
+                    // Yenile: çöp kutusunun solunda; Link klasörünü tekrar kontrol eder ve listeyi yeniden yükler
+                    Button { m.refresh() } label: { Image(systemName: "arrow.clockwise") }
+                        .help(L("Yenile (⌘R)", "Refresh (⌘R)"))
                     // Çöp kutusu: Link klasöründeki her şeyi macOS Çöp Kutusu'na gönderir (önce sorar)
                     Button { m.askTrashAll = true } label: { Image(systemName: "trash") }
                         .help(L("Tüm notları Çöp Kutusu'na gönder", "Send all notes to Trash"))

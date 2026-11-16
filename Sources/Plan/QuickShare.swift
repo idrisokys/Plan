@@ -16,6 +16,7 @@ struct QSInfo: Equatable {
     enum Kind { case sending, sent, receiving, received, failed }
     var kind: Kind
     var text: String
+    var folder: URL? = nil      // alınan dosyanın kaydedildiği klasör (satıra tıklayınca açılır)
     var icon: String {
         switch kind {
         case .sending: return "arrow.up.circle"
@@ -183,11 +184,11 @@ final class QuickShare: ObservableObject {
     fileprivate func remove(_ h: ConnHandler) { DispatchQueue.main.async { self.conns.remove(h) } }
 
     fileprivate func receiving(_ name: String) { post(.receiving, "Alınıyor: \(name)") }
-    fileprivate func received(_ name: String) { post(.received, "Alındı: \(name)") }
+    fileprivate func received(_ name: String, folder: URL) { post(.received, "Alındı: \(name)", folder: folder) }
 
     /// Bildirim göndermez; bilgi yalnızca paylaşım ekranındaki satırda görünür.
-    func post(_ kind: QSInfo.Kind, _ s: String) {
-        DispatchQueue.main.async { self.info = QSInfo(kind: kind, text: s) }
+    func post(_ kind: QSInfo.Kind, _ s: String, folder: URL? = nil) {
+        DispatchQueue.main.async { self.info = QSInfo(kind: kind, text: s, folder: folder) }
     }
 }
 
@@ -260,12 +261,13 @@ private final class ConnHandler: Hashable {
     private func complete() {
         try? fh?.close(); fh = nil
         var ok = !werr
+        var saveDir = QuickShare.receiveDir
         if ok, let p = part {
-            let dest = Self.unique(QuickShare.receiveDir, name)
-            do { try FileManager.default.moveItem(at: p, to: dest); name = dest.lastPathComponent } catch { ok = false }
+            let dest = Self.unique(saveDir, name)
+            do { try FileManager.default.moveItem(at: p, to: dest); name = dest.lastPathComponent; saveDir = dest.deletingLastPathComponent() } catch { ok = false }
         }
         if !ok, let p = part { try? FileManager.default.removeItem(at: p) }
-        if ok { owner?.received(name) } else { owner?.post(.failed, "Alma yarım kaldı: \(name)") }
+        if ok { owner?.received(name, folder: saveDir) } else { owner?.post(.failed, "Alma yarım kaldı: \(name)") }
         reply(ok ? "200 OK" : "500 Error")
     }
 

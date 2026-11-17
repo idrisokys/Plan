@@ -25,8 +25,7 @@ enum NotesWindow {
     /// Pencereyi açar / öne getirir (SwiftUI dışından, örn. plan://search adresi için).
     static func show() {
         requested = true
-        // Pencere açıkken Dock simgesi ve menü çubuğu (Notlarım menüsü, ⌘ kısayolları) görünsün.
-        NSApp.setActivationPolicy(.regular)
+        // Uygulama Dock'ta görünmez (LSUIElement); etkinleştirme politikası .accessory kalır.
         opener?(id: id)
         DispatchQueue.main.async { NSApp.activate(ignoringOtherApps: true) }
     }
@@ -40,6 +39,5 @@ enum NotesWindow {
     /// Pencere kapanınca uygulama yeniden yalnızca menü çubuğunda kalır.
     static func didClose() {
         requested = false
-        if !ImageEditorWindow.hasWindows { NSApp.setActivationPolicy(.accessory) }
     }
 }

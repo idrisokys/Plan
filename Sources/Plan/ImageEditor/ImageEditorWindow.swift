@@ -29,7 +29,6 @@ enum ImageEditorWindow {
             HUD.show(L("Resim açılamadı", "Could not open image"))
             return
         }
-        NSApp.setActivationPolicy(.regular)
 
         let host = NSHostingView(rootView: ImageEditorView(model: model))
         var size = NSSize(width: 860, height: 700)
@@ -58,7 +57,6 @@ enum ImageEditorWindow {
     fileprivate static func closed(_ c: Controller) {
         controllers.removeAll { $0 === c }
         // Pencere kalmadıysa ve Notlarım de açık değilse yeniden yalnızca menü çubuğunda kal
-        if controllers.isEmpty && !NotesWindow.requested { NSApp.setActivationPolicy(.accessory) }
     }
 
     @MainActor

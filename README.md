@@ -12,7 +12,7 @@ Tek uygulama, iki parça:
   Yazınca en çok 3 not + (sorgu · + · eklenen motorlar) satırı çıkar.
 - Arama motoru ekle: Arama satırındaki + → ad ve adres (`%s` aranan kelimenin yerine geçer) yaz, Ekle. Yeni motor ilk harfiyle
   en sağda görünür (sağ tık → Sil).
-- Enter / "Ekle": link ise .url, kısa metin not, 220 karakterden uzunsa .txt olarak kaydeder.
+- Enter / "Ekle": link ise `~/Link/Url` klasörüne .url (Notlarım'da başka bir alt klasörün içindeyken orada kalır), kısa metin not, 220 karakterden uzunsa .txt olarak kaydeder.
 - Satırın üstüne gelince: Paylaş, Kopyala, Çöpe at. Linke tıkla = tarayıcıda açılır.
 - Herhangi bir uygulamada metin seç → Hizmetler → **"Notlarıma Kaydet"** (ilk seferde Sistem Ayarları > Klavye >
   Klavye Kısayolları > Hizmetler'den açman gerekebilir). Link ise sayfa başlığı otomatik alınır.
@@ -23,13 +23,12 @@ Tek uygulama, iki parça:
 
 ## Notlarım penceresi
 
-Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Açıkken uygulama Dock'ta ve menü çubuğunda (Notlarım menüsü,
-⌘ kısayolları) görünür; pencere kapanınca yeniden yalnızca menü çubuğunda kalır.
+Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere varsayılan olarak her zaman en üstte durur. Uygulama Dock'ta görünmez, yalnızca menü çubuğunda yaşar.
 
 - Notlar `~/Link` klasöründe; Android'deki Link klasörüyle aynı biçim. Klasörler, yeniden adlandırma, taşıma, sıralama.
 - Satırın sağındaki ⋮: Düzenle / Taşı / Paylaş / Sil (birden çok seçiliyse hepsine); ⋮ basılı tutunca düzenleme modu.
-- Sil = silmez; `~/.onemsiz` gizli klasörüne taşır. Araç çubuğundaki **çöp kutusu** (klasör ekle simgesinin yanında) onay sorup Link klasöründeki her şeyi macOS Çöp Kutusu'na gönderir.
-- Araç çubuğu: başlığın hemen sağında klasör ekle, yenile, çöp kutusu. Menü çubuğu paneli Notlarım açıkken pencereyi kapatmasın diye sola kayar.
+- Sil = silmez; `~/.onemsiz` gizli klasörüne taşır.
+- Araç çubuğu: en solda başlık (Notlarım), hemen sağında klasör ekle, yenile. Menü çubuğu paneli Notlarım açıkken pencereyi kapatmasın diye sola kayar.
 - Kısa not satırına tıklamak metni panoya kopyalar; satıra uzun basmak kopyalar.
 - `.txt` içinde arama (⌘F), eşleşmeler işaretli, ▲▼ ile gezinme.
 - Eşitleme: Hızlı Paylaş açıkken cihaz listesinin üstündeki ⇄ simgesi; açılan pencerede cihazlar işaretlenir ve "Bu cihaza göre / Karşıdaki cihaza göre / İki cihazda aynı olsun" seçilir. `~/Link` içeriği (Android'deki `<ana dizin>/Link` ile) eşitlenir; silinenler Çöp Kutusu'na gider.

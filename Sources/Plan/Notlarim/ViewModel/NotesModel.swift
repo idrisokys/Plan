@@ -43,7 +43,6 @@ final class NotesModel: ObservableObject {
     @Published var txtMatches: [NSRange] = []
     @Published var txtCur = 0
     // Çöp kutusu düğmesi: onay sorusu
-    @Published var askTrashAll = false
 
     // Yazı boyutu (punto): liste, arama sonuçları, alt alanlar ve .txt görünümü bunu kullanır; kalıcıdır.
     static let minFont = 10.0, maxFont = 32.0, defaultFont = 15.0

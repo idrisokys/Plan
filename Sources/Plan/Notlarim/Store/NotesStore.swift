@@ -154,11 +154,25 @@ enum NotesStore {
         return u.count > 8 ? u : nil
     }
 
+    /// Linklerin varsayılan klasörü: kök klasörün altındaki "Url" (yoksa oluşturulur).
+    static let linkFolderName = "Url"
+
+    /// `dir` kök klasörse Url klasörünü döndürür (gerekirse oluşturur); başka bir klasörse aynen döndürür.
+    static func linkDir(for dir: URL) -> URL {
+        guard let r = root, dir.standardizedFileURL.path == r.standardizedFileURL.path else { return dir }
+        lock.lock(); defer { lock.unlock() }
+        let all = children(r)
+        if let e = all.first(where: { $0.isDir && norm($0.name) == norm(linkFolderName) }) { return e.url }
+        return addFolder(r, linkFolderName) ?? dir
+    }
+
     /// Link veya metni uygun şekilde kaydeder. Ağ erişimi yaptığı için arka planda çağrılmalı.
     static func addFromText(_ dir: URL, _ text: String, _ subject: String? = nil) async -> Bool {
         let t = text.trimmed
         if t.isEmpty { return false }
         guard let url = extractUrl(t) else { return addNote(dir, text: t) }
+        // Linkler varsayılan olarak Link/Url klasörüne kaydedilir (kullanıcı başka bir alt klasörün içindeyse orada kalır).
+        let dir = linkDir(for: dir)
         // Paylaşan tarayıcı sayfanın başlığını veriyorsa (Safari/Chrome) o kullanılır; yoksa sayfa indirilip <title> alınır.
         var title: String? = nil
         if let s = subject?.components(separatedBy: .newlines).first(where: { !$0.trimmed.isEmpty })?.trimmed,
@@ -275,19 +289,6 @@ enum NotesStore {
             n += 1
         }
         do { try fm.moveItem(at: url, to: t); return true } catch { return false }
-    }
-
-    /// Link klasöründeki her şeyi (gizli dosyalar dahil) macOS Çöp Kutusu'na gönderir; (gönderilen, toplam) döndürür.
-    /// .DS_Store sayılmaz.
-    static func trashAllToBin(in root: URL) -> (Int, Int) {
-        lock.lock(); defer { lock.unlock() }
-        let fm = FileManager.default
-        let names = ((try? fm.contentsOfDirectory(atPath: root.path)) ?? []).filter { $0 != ".DS_Store" }
-        var n = 0
-        for name in names {
-            if (try? fm.trashItem(at: root.appendingPathComponent(name), resultingItemURL: nil)) != nil { n += 1 }
-        }
-        return (n, names.count)
     }
 
     /// Eski davranış: Çöp Kutusu'na gönderir (artık kullanılmıyor).

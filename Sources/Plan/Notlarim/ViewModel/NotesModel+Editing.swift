@@ -17,20 +17,6 @@ extension NotesModel {
         }
     }
 
-    /// Çöp kutusu düğmesi: Link klasöründeki her şey macOS Çöp Kutusu'na gönderilir (oradan geri alınabilir).
-    func trashAllToBin() {
-        guard let r = root else { toast(L("Link klasörü bulunamadı", "Link folder not found")); return }
-        Task {
-            let (n, total) = await self.io { NotesStore.trashAllToBin(in: r) }
-            self.selected = []
-            self.editMode = false
-            self.setStack([])
-            self.toast(total == 0 ? L("Link klasöründe öğe yok", "The Link folder is empty")
-                : n == total ? L("Çöp Kutusu'na gönderildi (\(n))", "Moved to Trash (\(n))")
-                : L("\(n)/\(total) öğe Çöp Kutusu'na gönderilebildi", "\(n)/\(total) items moved to Trash"))
-        }
-    }
-
     /// "Paylaş": notlar metin olarak paylaşılır (.txt: içerik, link: adres, not: metin); klasörler paylaşılamaz.
     func shareEntries(_ items: [Entry]) {
         Task {

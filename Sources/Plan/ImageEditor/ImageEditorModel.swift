@@ -197,13 +197,6 @@ final class ImageEditorModel: ObservableObject {
     }
 
     func trash() {
-        let a = NSAlert()
-        a.messageText = L("Resim Çöp Kutusu'na taşınsın mı?", "Move this image to the Trash?")
-        a.informativeText = sourceURL.lastPathComponent
-        a.addButton(withTitle: L("Çöpe at", "Move to Trash"))
-        a.addButton(withTitle: L("Vazgeç", "Cancel"))
-        NSApp.activate(ignoringOtherApps: true)
-        guard a.runModal() == .alertFirstButtonReturn else { return }
         do {
             try FileManager.default.trashItem(at: sourceURL, resultingItemURL: nil)
             HUD.show(L("Çöp Kutusu'na taşındı", "Moved to Trash"))

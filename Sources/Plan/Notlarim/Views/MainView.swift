@@ -16,6 +16,9 @@ struct MainView: View {
         // Başlık sistem başlığı yerine araç çubuğunda durur; simgeler başlıktan hemen sonra sağa doğru sıralanır.
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
+                // Başlık ("Notlarım" / klasör adı / arama bilgisi) en solda durur
+                Text(m.title).font(.headline).lineLimit(1).truncationMode(.tail)
+                    .frame(maxWidth: 160, alignment: .leading)
                 // Aramada yenile en solda (aramayı yeniler); normal görünümde çöp kutusunun soluna taşınır
                 if m.searchQuery != nil {
                     Button { m.refresh() } label: { Image(systemName: "arrow.clockwise") }
@@ -34,23 +37,8 @@ struct MainView: View {
                     // Yenile: çöp kutusunun solunda; Link klasörünü tekrar kontrol eder ve listeyi yeniden yükler
                     Button { m.refresh() } label: { Image(systemName: "arrow.clockwise") }
                         .help(L("Yenile (⌘R)", "Refresh (⌘R)"))
-                    // Çöp kutusu: Link klasöründeki her şeyi macOS Çöp Kutusu'na gönderir (önce sorar)
-                    Button { m.askTrashAll = true } label: { Image(systemName: "trash") }
-                        .help(L("Tüm notları Çöp Kutusu'na gönder", "Send all notes to Trash"))
-                }
-                // İkonların SAĞINDA; "Notlarım" başlığı gösterilmez, yalnızca klasör içindeyken / arama ve seçim sırasında bilgi yazısı çıkar
-                if m.title != L("Notlarım", "My Notes") {
-                    Text(m.title).font(.headline).lineLimit(1).truncationMode(.tail)
-                        .frame(maxWidth: 160, alignment: .leading)
                 }
             }
-        }
-        .confirmationDialog(L("Link klasöründeki tüm dosyalar Çöp Kutusu'na gönderilsin mi?", "Send everything in the Link folder to Trash?"),
-                            isPresented: $m.askTrashAll, titleVisibility: .visible) {
-            Button(L("Çöp Kutusu'na gönder", "Send to Trash"), role: .destructive) { m.trashAllToBin() }
-            Button(L("Vazgeç", "Cancel"), role: .cancel) { }
-        } message: {
-            Text(L("Notlar, linkler ve klasörler Çöp Kutusu'na taşınır; oradan geri alabilirsiniz.", "Notes, links and folders are moved to the Trash; you can restore them from there."))
         }
         .sheet(item: $m.sheet) { s in
             switch s {

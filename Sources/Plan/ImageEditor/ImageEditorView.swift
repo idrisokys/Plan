@@ -33,6 +33,14 @@ struct ImageEditorView: View {
         HStack(spacing: 8) {
             Button { ImageEditorWindow.openPicker() } label: { edCircle("folder") }
                 .buttonStyle(.plain).help(L("Başka resim aç", "Open another image"))
+            Button { model.navigate(-1) } label: { edCircle("chevron.left") }
+                .buttonStyle(.plain).disabled(!model.canNavigate).opacity(model.canNavigate ? 1 : 0.4)
+                .keyboardShortcut(.leftArrow, modifiers: [])
+                .help(L("Önceki resim (←)", "Previous image (←)"))
+            Button { model.navigate(1) } label: { edCircle("chevron.right") }
+                .buttonStyle(.plain).disabled(!model.canNavigate).opacity(model.canNavigate ? 1 : 0.4)
+                .keyboardShortcut(.rightArrow, modifiers: [])
+                .help(L("Sonraki resim (→)", "Next image (→)"))
             Button { model.undo() } label: { edCircle("arrow.uturn.backward") }
                 .buttonStyle(.plain).disabled(!model.canUndo).opacity(model.canUndo ? 1 : 0.4)
                 .keyboardShortcut("z", modifiers: .command)
@@ -48,6 +56,8 @@ struct ImageEditorView: View {
             } label: { edCircle("square.and.arrow.down") }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 .help(L("Kaydet", "Save"))
+            Button { model.share() } label: { edCircle("square.and.arrow.up") }
+                .buttonStyle(.plain).help(L("Paylaş", "Share"))
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
     }
@@ -144,7 +154,7 @@ struct ImageEditorView: View {
                         let d = CGSize(width: v.translation.width / scale, height: v.translation.height / scale)
                         model.cropRect = model.resized(cropStart, h, d)
                     }
-                case .filter:
+                default:
                     break
                 }
             }
@@ -170,9 +180,10 @@ struct ImageEditorView: View {
     private var bottomPanel: some View {
         VStack(spacing: 12) {
             switch model.tool {
-            case .filter: filterStrip
-            case .crop: cropPanel
-            case .draw: drawPanel
+            case .filter?: filterStrip
+            case .crop?: cropPanel
+            case .draw?: drawPanel
+            case nil: EmptyView()
             }
             HStack(spacing: 28) {
                 toolTab(.filter, "camera.filters", L("Filtre", "Filters"))

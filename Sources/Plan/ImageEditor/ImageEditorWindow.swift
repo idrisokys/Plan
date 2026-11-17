@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
+import Combine
 
 /// Resim düzenleyici pencereleri: alt çubuktaki resim düğmesi bir resim seçtirir ve düzenleyiciyi açar.
 /// Her resim kendi penceresinde açılır; kaydedilmemiş değişiklik varsa kapatırken sorulur.
@@ -64,10 +65,13 @@ enum ImageEditorWindow {
     fileprivate final class Controller: NSObject, NSWindowDelegate {
         let window: NSWindow
         let model: ImageEditorModel
+        private var titleSub: AnyCancellable?
 
         init(window: NSWindow, model: ImageEditorModel) {
             self.window = window
             self.model = model
+            super.init()
+            titleSub = model.$sourceURL.sink { [weak window] u in window?.title = u.lastPathComponent }
         }
 
         func windowShouldClose(_ sender: NSWindow) -> Bool {

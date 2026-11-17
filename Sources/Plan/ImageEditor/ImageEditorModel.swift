@@ -83,7 +83,8 @@ enum EditorFilters {
 final class ImageEditorModel: ObservableObject {
     struct Snapshot { let image: CGImage; let strokes: [EditorStroke]; let filter: Int }
 
-    let sourceURL: URL
+    @Published private(set) var sourceURL: URL
+    private(set) var folderImages: [URL] = []
     var title: String { sourceURL.lastPathComponent }
 
     @Published private(set) var current: CGImage          // filtre ve çizim hariç temel görüntü
@@ -92,7 +93,7 @@ final class ImageEditorModel: ObservableObject {
     @Published var strokes: [EditorStroke] = []
     @Published var liveStroke: EditorStroke?
     @Published var filterIndex = 0
-    @Published var tool: EditorTool = .filter
+    @Published var tool: EditorTool? = nil          // başlangıçta hiçbir panel açık değil
     @Published var cropRect: CGRect = .zero
     @Published var aspect: CropAspect = .free
     @Published var customX: Double = 3
@@ -116,6 +117,82 @@ final class ImageEditorModel: ObservableObject {
         display = img
         refreshThumbs()
         setAspect(.free)
+        folderImages = Self.imagesInFolder(of: url)
+    }
+
+    // MARK: Klasördeki resimler arasında gezinme
+    var canNavigate: Bool { folderImages.count > 1 }
+
+    static func imagesInFolder(of url: URL) -> [URL] {
+        let dir = url.deletingLastPathComponent()
+        let items = (try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles])) ?? []
+        let imgs = items.filter { u in
+            guard let t = UTType(filenameExtension: u.pathExtension) else { return false }
+            return t.conforms(to: .image)
+        }
+        // En yeni tarihli ilk sırada (değiştirilme tarihine göre); tarih eşitse ada göre
+        func date(_ u: URL) -> Date {
+            (try? u.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+        }
+        return imgs.sorted {
+            let a = date($0), b = date($1)
+            if a != b { return a > b }
+            return $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending
+        }
+    }
+
+    /// delta: -1 daha yeni, +1 daha eski resim (uçlardan sonra başa/sona döner).
+    func navigate(_ delta: Int) {
+        guard canNavigate,
+              let i = folderImages.firstIndex(where: { $0.lastPathComponent == sourceURL.lastPathComponent }) else { return }
+        if dirty {
+            let a = NSAlert()
+            a.messageText = L("Kaydedilmemiş değişiklikler var", "You have unsaved changes")
+            a.informativeText = L("Başka resme geçersen düzenlemeler kaybolur.", "Switching images will discard your edits.")
+            a.addButton(withTitle: L("Geç", "Switch"))
+            a.addButton(withTitle: L("Vazgeç", "Cancel"))
+            guard a.runModal() == .alertFirstButtonReturn else { return }
+        }
+        let n = folderImages.count
+        var j = i
+        for _ in 0..<(n - 1) {
+            j = (j + delta + n) % n
+            if replace(with: folderImages[j]) { return }
+        }
+    }
+
+    private func replace(with url: URL) -> Bool {
+        guard let img = Self.load(url) else { return false }
+        sourceURL = url
+        current = img
+        display = img
+        strokes = []; liveStroke = nil; filterIndex = 0
+        undoStack = []; undoCount = 0; dirty = false
+        refreshThumbs()
+        setAspect(aspect)
+        return true
+    }
+
+    // MARK: Paylaş
+    private var sharePicker: NSSharingServicePicker?
+
+    /// Düzenlenmiş resmi geçici dosyaya yazıp macOS paylaşım menüsünü sağ üstte açar.
+    func share() {
+        let ext = sourceURL.pathExtension.lowercased()
+        let useJpeg = ext == "jpg" || ext == "jpeg"
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("PlanEditorShare", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent(sourceURL.deletingPathExtension().lastPathComponent + (useJpeg ? ".jpg" : ".png"))
+        try? FileManager.default.removeItem(at: url)
+        guard save(to: url), let view = NSApp.keyWindow?.contentView else {
+            HUD.show(L("Paylaşılamadı", "Could not share")); return
+        }
+        let picker = NSSharingServicePicker(items: [url])
+        sharePicker = picker
+        let b = view.bounds
+        let anchor = NSRect(x: b.maxX - 48, y: b.maxY - 52, width: 36, height: 36)
+        picker.show(relativeTo: anchor, of: view, preferredEdge: .minY)
     }
 
     // MARK: Yükleme
@@ -163,6 +240,7 @@ final class ImageEditorModel: ObservableObject {
     }
 
     func selectTool(_ t: EditorTool) {
+        if tool == t { tool = nil; return }              // aynı simgeye tekrar basınca panel kapanır
         tool = t
         if t == .crop { setAspect(aspect) }
     }

@@ -48,6 +48,12 @@ struct ImageEditorView: View {
             Text(model.title).font(.system(size: 14, weight: .medium)).foregroundStyle(edDim)
                 .lineLimit(1).truncationMode(.middle).padding(.leading, 6)
             Spacer(minLength: 8)
+            Button { model.rename() } label: { edCircle("character.cursor.ibeam") }
+                .buttonStyle(.plain).help(L("Adı değiştir", "Rename"))
+            Button { model.move() } label: { edCircle("rectangle.portrait.and.arrow.right") }
+                .buttonStyle(.plain).help(L("Başka klasöre taşı", "Move to folder"))
+            Button { model.trash() } label: { edCircle("trash") }
+                .buttonStyle(.plain).help(L("Çöpe at", "Move to Trash"))
             Button { model.copyToClipboard() } label: { edCircle("doc.on.doc") }
                 .buttonStyle(.plain).help(L("Panoya kopyala", "Copy to clipboard"))
             Menu {

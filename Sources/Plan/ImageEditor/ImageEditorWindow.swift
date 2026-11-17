@@ -71,6 +71,7 @@ enum ImageEditorWindow {
             self.window = window
             self.model = model
             super.init()
+            model.onEmpty = { [weak window] in window?.close() }
             titleSub = model.$sourceURL.sink { [weak window] u in window?.title = u.lastPathComponent }
         }
 

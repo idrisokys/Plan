@@ -174,6 +174,107 @@ final class ImageEditorModel: ObservableObject {
         return true
     }
 
+    // MARK: Çöpe at / taşı / yeniden adlandır
+    /// Klasörde gösterilecek resim kalmayınca (pencere kapanır).
+    var onEmpty: (() -> Void)?
+
+    private func currentIndex() -> Int? {
+        folderImages.firstIndex(where: { $0.lastPathComponent == sourceURL.lastPathComponent })
+    }
+
+    /// Geçerli dosya klasörden ayrıldı: sıradaki (daha eski) resme geç, yoksa pencereyi kapat.
+    private func removeCurrentAndAdvance() {
+        dirty = false
+        guard let i = currentIndex() else { onEmpty?(); return }
+        folderImages.remove(at: i)
+        guard !folderImages.isEmpty else { onEmpty?(); return }
+        var j = min(i, folderImages.count - 1)
+        for _ in 0..<folderImages.count {
+            if replace(with: folderImages[j]) { return }
+            j = (j + 1) % folderImages.count
+        }
+        onEmpty?()
+    }
+
+    func trash() {
+        let a = NSAlert()
+        a.messageText = L("Resim Çöp Kutusu'na taşınsın mı?", "Move this image to the Trash?")
+        a.informativeText = sourceURL.lastPathComponent
+        a.addButton(withTitle: L("Çöpe at", "Move to Trash"))
+        a.addButton(withTitle: L("Vazgeç", "Cancel"))
+        NSApp.activate(ignoringOtherApps: true)
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try FileManager.default.trashItem(at: sourceURL, resultingItemURL: nil)
+            HUD.show(L("Çöp Kutusu'na taşındı", "Moved to Trash"))
+            removeCurrentAndAdvance()
+        } catch {
+            HUD.show(L("Çöpe atılamadı", "Could not move to Trash"))
+        }
+    }
+
+    func move() {
+        NSApp.activate(ignoringOtherApps: true)
+        let p = NSOpenPanel()
+        p.canChooseFiles = false
+        p.canChooseDirectories = true
+        p.canCreateDirectories = true
+        p.allowsMultipleSelection = false
+        p.directoryURL = sourceURL.deletingLastPathComponent()
+        p.prompt = L("Buraya taşı", "Move here")
+        p.message = L("Resmin taşınacağı klasörü seç", "Choose the folder to move the image to")
+        guard p.runModal() == .OK, let dir = p.url else { return }
+        if dir.standardizedFileURL == sourceURL.deletingLastPathComponent().standardizedFileURL { return }
+        var dest = dir.appendingPathComponent(sourceURL.lastPathComponent)
+        var n = 2
+        let base = sourceURL.deletingPathExtension().lastPathComponent, ext = sourceURL.pathExtension
+        while FileManager.default.fileExists(atPath: dest.path) {          // aynı ada sahip dosya varsa numara ekle
+            dest = dir.appendingPathComponent("\(base) \(n)" + (ext.isEmpty ? "" : "." + ext))
+            n += 1
+        }
+        do {
+            try FileManager.default.moveItem(at: sourceURL, to: dest)
+            HUD.show(L("Taşındı: ", "Moved to: ") + dir.lastPathComponent)
+            removeCurrentAndAdvance()
+        } catch {
+            HUD.show(L("Taşınamadı", "Could not move"))
+        }
+    }
+
+    func rename() {
+        let ext = sourceURL.pathExtension
+        let a = NSAlert()
+        a.messageText = L("Adı değiştir", "Rename")
+        a.informativeText = ext.isEmpty ? "" : L("Uzantı (.\(ext)) korunur.", "The extension (.\(ext)) is kept.")
+        let tf = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        tf.stringValue = sourceURL.deletingPathExtension().lastPathComponent
+        a.accessoryView = tf
+        a.addButton(withTitle: L("Değiştir", "Rename"))
+        a.addButton(withTitle: L("Vazgeç", "Cancel"))
+        NSApp.activate(ignoringOtherApps: true)
+        a.window.initialFirstResponder = tf
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        let name = tf.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !name.contains("/"), !name.contains(":") else {
+            HUD.show(L("Geçersiz ad", "Invalid name")); return
+        }
+        let dest = sourceURL.deletingLastPathComponent()
+            .appendingPathComponent(ext.isEmpty ? name : name + "." + ext)
+        if dest.lastPathComponent == sourceURL.lastPathComponent { return }
+        guard !FileManager.default.fileExists(atPath: dest.path) else {
+            HUD.show(L("Bu adla bir dosya var", "A file with this name already exists")); return
+        }
+        do {
+            let i = currentIndex()
+            try FileManager.default.moveItem(at: sourceURL, to: dest)
+            if let i = i { folderImages[i] = dest }
+            sourceURL = dest                                  // düzenlemeler korunur, başlık güncellenir
+            HUD.show(L("Ad değiştirildi", "Renamed"))
+        } catch {
+            HUD.show(L("Ad değiştirilemedi", "Could not rename"))
+        }
+    }
+
     // MARK: Paylaş
     private var sharePicker: NSSharingServicePicker?
 

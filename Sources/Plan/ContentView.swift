@@ -103,6 +103,9 @@ struct ContentView: View {
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
             Button { NotesWindow.toggle() } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help("Notlarım (aç/kapat)")
+            // Resim düzenleyici: resim seçtirir, filtre / kırp / döndür / çiz düzenleyicisini açar (✕'in solunda)
+            Button { ImageEditorWindow.openPicker() } label: { circle("photo.on.rectangle.angled") }
+                .buttonStyle(.plain).help(L("Resim düzenleyici", "Image editor"))
             // Kapat: uygulamayı tamamen kapatır
             Button { NSApp.terminate(nil) } label: { circle("xmark") }
                 .buttonStyle(.plain).help("Uygulamayı kapat")
@@ -178,6 +181,12 @@ struct ContentView: View {
                         .buttonStyle(.plain).help(e.name)
                         .contextMenu { Button("Sil") { removeEngine(e) } }
                 }
+                // Yazılanı temizle: + düğmesinin solunda
+                Button { text = ""; focused = true } label: {
+                    Image(systemName: "delete.left").font(.system(size: 16, weight: .medium)).foregroundStyle(.white)
+                        .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.2)))
+                }
+                .buttonStyle(.plain).help(L("Yazılanı temizle", "Clear text"))
                 Button { addOpen.toggle() } label: {
                     Image(systemName: "plus").font(.system(size: 17, weight: .heavy)).foregroundStyle(.white)
                         .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.2)))

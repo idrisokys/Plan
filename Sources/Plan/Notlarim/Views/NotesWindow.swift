@@ -40,6 +40,6 @@ enum NotesWindow {
     /// Pencere kapanınca uygulama yeniden yalnızca menü çubuğunda kalır.
     static func didClose() {
         requested = false
-        NSApp.setActivationPolicy(.accessory)
+        if !ImageEditorWindow.hasWindows { NSApp.setActivationPolicy(.accessory) }
     }
 }

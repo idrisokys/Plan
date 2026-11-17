@@ -38,6 +38,18 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Açıkken uy
 - Chrome eklentisi: `chrome-extension/` klasörü uygulamanın içine konur. Notlarım penceresi açıkken menü çubuğunda
   **Notlarım → Chrome Eklentisi Klasörünü Aç**. Kurulum: [chrome-extension/README.md](chrome-extension/README.md).
 
+## Resim düzenleyici
+
+Alt çubukta **✕**'in solundaki resim simgesi bir resim seçtirir ve düzenleyiciyi açar
+(Android'deki Temel Düzenleyici'nin macOS karşılığı; kod `Sources/Plan/ImageEditor/`).
+
+- **Filtre**: Siyah-Beyaz, Noir, Sepya, Klasik, Solgun, Chrome, Soğuk, Sıcak, Kontrast, Canlı, Parlak, Keskin, Vinyet, Negatif.
+- **Kırp / Döndür**: serbest, 1:1, 4:3, 16:9, özel oran; sağa döndür, yatay / dikey çevir, yeniden boyutlandır.
+- **Çiz**: renk, fırça boyutu, geri al (⌘Z tüm adımları geri alır).
+- Kaydet menüsü: **Farklı kaydet…** (png / jpg / heic / tiff) ya da **Üzerine yaz** (onay sorar). Panoya kopyala düğmesi de var.
+
+Arama sırasında (yazı varken) satırdaki **+** düğmesinin solunda **yazılanı temizleyen** simge çıkar.
+
 ## Klasör yapısı
 
 ```
@@ -53,6 +65,7 @@ Sources/Plan/
 ├── ContentView.swift    # Arama çubuğu (ekleme/arama Notlarım ile ortak: NotesStore.submit / searchAsync)
 ├── FloatingBar.swift    # Arama çubuğunu sağ alt köşeye sabitleyen yüzen panel; menü çubuğu simgesi göster/gizle
 ├── QuickShare.swift     # Hızlı Paylaş
+├── ImageEditor/         # Resim düzenleyici (model, arayüz, pencere)
 └── Notlarim/            # Notlarım kodu (Models, Store, Services, ViewModel, Views, Support)
 Tests/PlanTests/      # Notlarım depolama katmanı testleri
 ```

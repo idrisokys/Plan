@@ -38,6 +38,7 @@ struct AddBar: View {
                     .font(.footnote)
                     .foregroundStyle(m.linkText.count > m.addMax ? Color.red : Color.secondary)
                 Spacer()
+                EditModeButton()
                 Image(systemName: "plus")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
@@ -64,5 +65,32 @@ struct AddBar: View {
         }
         .padding(8)
         .background(.bar)
+    }
+}
+
+/// Düzenleme (çoklu seçim) moduna geçiren düğme: üç satırlık işaretli liste çizimi.
+/// Mod açıkken dolu vurgu rengine döner; tekrar basınca moddan çıkar.
+struct EditModeButton: View {
+    @EnvironmentObject var m: NotesModel
+
+    var body: some View {
+        let on = m.editMode
+        let ink: Color = on ? .white : .secondary
+        VStack(alignment: .leading, spacing: 3.5) {
+            ForEach(0..<3, id: \.self) { i in
+                HStack(spacing: 3) {
+                    ZStack {
+                        Circle().stroke(ink, lineWidth: 1.2).frame(width: 6, height: 6)
+                        if i == 0 { Circle().fill(ink).frame(width: 3, height: 3) }
+                    }
+                    Capsule().fill(ink).frame(width: 9, height: 1.8)
+                }
+            }
+        }
+        .frame(width: 30, height: 30)
+        .background(Circle().fill(on ? Color.accentColor.opacity(0.95) : Color.secondary.opacity(0.18)))
+        .contentShape(Circle())
+        .help(on ? L("Düzenlemeyi bitir (⌘E)", "Done editing (⌘E)") : L("Düzenleme modu: satırları seç, sırala (⌘E)", "Edit mode: select and reorder rows (⌘E)"))
+        .onTapGesture { m.toggleEdit() }
     }
 }

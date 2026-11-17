@@ -29,6 +29,16 @@ final class NotesModel: ObservableObject {
     @Published var moving: [Entry] = []
     @Published var renaming: Entry? = nil      // düzenleme modunda tek öğe seçiliyse o öğe (adı altta değiştirilir)
     @Published var renameText = ""
+    /// ⋮ menüsindeki "Düzenle": yalnızca o satırın adı alttaki alanda düzenlenir; seçim modu açılmaz.
+    @Published var inlineRename = false
+
+    // Pencere her zaman üstte mi? Varsayılan: hayır. Sağ üstteki raptiye düğmesiyle değişir; kalıcıdır.
+    @Published var alwaysOnTop: Bool = UserDefaults.standard.bool(forKey: "alwaysOnTop") {
+        didSet {
+            UserDefaults.standard.set(alwaysOnTop, forKey: "alwaysOnTop")
+            NotesWindow.window?.level = alwaysOnTop ? .floating : .normal
+        }
+    }
     // Tam pencerede açık .txt dosyası
     @Published var txt: Entry? = nil
     @Published var txtSaved = ""               // dosyadaki son hâl
@@ -100,6 +110,7 @@ final class NotesModel: ObservableObject {
 
     /// Düzenleme modunda tam bir öğe seçiliyse adı alttaki alanda değiştirilir.
     private func syncRename() {
+        if inlineRename { return }   // satır içi düzenleme seçimden bağımsızdır
         let e: Entry? = (editMode && selected.count == 1) ? list.first(where: { selected.contains($0.key) }) : nil
         if e?.key != renaming?.key {
             renaming = e

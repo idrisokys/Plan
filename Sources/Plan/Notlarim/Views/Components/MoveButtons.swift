@@ -4,7 +4,7 @@ import SwiftUI
 struct DoneEditButton: View {
     @EnvironmentObject var m: NotesModel
     var body: some View {
-        Button { m.editMode = false; m.selected = [] } label: { Image(systemName: "checkmark.circle.fill") }
+        Button { m.cancelRename(); m.editMode = false; m.selected = [] } label: { Image(systemName: "checkmark.circle.fill") }
             .foregroundStyle(Color.accentColor)
             .help(L("Tamam: düzenlemeyi bitir", "Done: finish editing"))
     }

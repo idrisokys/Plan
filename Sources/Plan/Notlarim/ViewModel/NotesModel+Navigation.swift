@@ -34,6 +34,7 @@ extension NotesModel {
         let t = q.trimmed
         guard !t.isEmpty else { return }
         sheet = nil
+        cancelRename()
         txt = nil
         editMode = false
         selected = []
@@ -43,6 +44,7 @@ extension NotesModel {
     }
 
     func setStack(_ s: [Entry]) {
+        cancelRename()
         stack = s
         selected = []
         loaded = nil
@@ -52,6 +54,7 @@ extension NotesModel {
     func goBack() {
         if txt != nil { txtBack() }
         else if searchQuery != nil { exitSearch(false) }
+        else if inlineRename { cancelRename() }
         else if editMode { editMode = false; selected = [] }
         else if !stack.isEmpty { setStack(Array(stack.dropLast())) }
     }

@@ -43,7 +43,7 @@ struct RenameBar: View {
                     .font(.footnote)
                     .foregroundStyle(over ? Color.red : Color.secondary)
                 DoneEditButton()
-                MoveButtons()
+                if !m.inlineRename { MoveButtons() }
                 Spacer()
                 Button { m.pasteIntoRename() } label: { Image(systemName: "doc.on.clipboard") }
                     .help(L("Yapıştır", "Paste"))

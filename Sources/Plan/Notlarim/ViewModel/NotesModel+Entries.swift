@@ -16,12 +16,14 @@ extension NotesModel {
 
     func toggleEdit() {
         if txt != nil { txtStartEdit(); return }   // .txt açıkken ⌘E metni düzenler
+        cancelRename()
         editMode.toggle()
         selected = []
     }
 
     /// ⋮ menüsündeki "Düzenle": düzenleme modunu açar (kapalıysa); açıksa açık bırakır.
     func beginEdit() {
+        cancelRename()
         if !editMode { editMode = true; selected = [] }
     }
 

@@ -22,7 +22,7 @@ struct WindowDock: NSViewRepresentable {
             DispatchQueue.main.async {
                 if !NotesWindow.requested { w.close(); return }
                 w.isRestorable = false
-                w.level = .floating           // Notlarım varsayılan olarak en üstte durur
+                w.level = NotesModel.shared.alwaysOnTop ? .floating : .normal   // varsayılan: normal; sağ üstteki raptiyeyle değişir
                 w.titleVisibility = .hidden
                 w.title = ""                  // "Notlarım" başlığı gösterilmez
                 w.setContentSize(WindowDock.size)

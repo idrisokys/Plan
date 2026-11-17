@@ -100,11 +100,9 @@ struct MainView: View {
             Text(e.title).font(.system(size: m.fontSize)).lineLimit(4).truncationMode(.tail)
             Spacer(minLength: 8)
             if e.pinned { Image(systemName: "pin.fill").font(.system(size: 11)).foregroundStyle(.secondary) }
-            // Üç nokta: tek tıkla menü (Taşı / Paylaş / Sil); basılı tutunca düzenleme modu açılır/kapanır
+            // Üç nokta: tek tıkla menü (Düzenle / Sabitle / Taşı / Paylaş / Sil); "Düzenle" yalnızca bu satırın adını düzenler
             Menu {
-                Button(m.editMode ? L("Düzenlemeyi bitir", "Done editing") : L("Düzenle", "Edit")) {
-                    if m.editMode { m.toggleEdit() } else { m.beginEdit() }
-                }
+                Button(L("Düzenle", "Edit")) { m.beginRename(e) }
                 Divider()
                 Button(pinLabel) { m.togglePin(targets) }
                 Button(L("Taşı", "Move")) { m.beginMove(targets) }
@@ -116,13 +114,10 @@ struct MainView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
-            .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in
-                m.editMode.toggle(); m.selected = []
-            })
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
-        .background(sel ? Color.accentColor.opacity(0.22) : Color.clear)
+        .background((sel || m.renaming?.key == e.key) ? Color.accentColor.opacity(0.22) : Color.clear)
         .onTapGesture { m.tap(e) }
         .onLongPressGesture(minimumDuration: 0.5) { m.copyEntry(e) }
         .contextMenu {
@@ -131,7 +126,7 @@ struct MainView: View {
             Button(L("Paylaş", "Share")) { m.shareEntries(targets) }
             Button(L("Sil", "Delete")) { m.deleteNow(targets) }
             Divider()
-            Button(m.editMode ? L("Düzenlemeyi bitir", "Done editing") : L("Düzenle", "Edit")) { m.toggleEdit() }
+            Button(L("Düzenle", "Edit")) { m.beginRename(e) }
         }
     }
 }

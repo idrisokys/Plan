@@ -10,6 +10,7 @@ extension NotesModel {
         let q = linkText.trimmed
         guard !q.isEmpty else { return }
         NSApp.keyWindow?.makeFirstResponder(nil)
+        cancelRename()
         editMode = false
         selected = []
         runSearch(q)

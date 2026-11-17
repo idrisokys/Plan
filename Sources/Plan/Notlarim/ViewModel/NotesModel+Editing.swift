@@ -49,6 +49,23 @@ extension NotesModel {
         }
     }
 
+    /// ⋮ → "Düzenle": yalnızca bu satırın adını alttaki alanda düzenler (seçim modu açılmaz).
+    func beginRename(_ e: Entry) {
+        editMode = false
+        selected = []
+        inlineRename = true
+        renaming = e
+        renameText = e.title
+    }
+
+    /// Satır içi düzenlemeyi kapatır (kaydedilmemiş değişiklik uygulanmaz).
+    func cancelRename() {
+        guard inlineRename else { return }
+        inlineRename = false
+        renaming = nil
+        renameText = ""
+    }
+
     func pasteIntoRename() {
         if let s = NSPasteboard.general.string(forType: .string) { renameText = String(s.prefix(editCap)) }
     }
@@ -58,6 +75,8 @@ extension NotesModel {
         let n = renameText
         if n.trimmed.isEmpty { return }
         let toTxt = !r.isDir && !r.isTxt && n.trimmed.count > maxChars
+        inlineRename = false
+        renaming = nil
         selected = []
         editMode = false          // kayıt yapılınca düzenleme modu otomatik kapanır
         Task {

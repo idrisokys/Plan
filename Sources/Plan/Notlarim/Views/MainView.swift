@@ -84,6 +84,7 @@ struct MainView: View {
         let sel = m.selected.contains(e.key)
         // Öğe birden çok seçilenin içindeyse işlem tüm seçilenlere uygulanır
         let targets: [Entry] = (sel && m.selected.count > 1) ? m.list.filter { m.selected.contains($0.key) } : [e]
+        let pinLabel = targets.allSatisfy { $0.pinned } ? L("Sabitlemeyi kaldır", "Unpin") : L("Sabitle", "Pin")
         HStack(spacing: 10) {
             if m.editMode {
                 // Düzenleme modunda soldaki boşluğa tıklamak satırı seçer / seçimi kaldırır
@@ -98,12 +99,14 @@ struct MainView: View {
             }
             Text(e.title).font(.system(size: m.fontSize)).lineLimit(4).truncationMode(.tail)
             Spacer(minLength: 8)
+            if e.pinned { Image(systemName: "pin.fill").font(.system(size: 11)).foregroundStyle(.secondary) }
             // Üç nokta: tek tıkla menü (Taşı / Paylaş / Sil); basılı tutunca düzenleme modu açılır/kapanır
             Menu {
                 Button(m.editMode ? L("Düzenlemeyi bitir", "Done editing") : L("Düzenle", "Edit")) {
                     if m.editMode { m.toggleEdit() } else { m.beginEdit() }
                 }
                 Divider()
+                Button(pinLabel) { m.togglePin(targets) }
                 Button(L("Taşı", "Move")) { m.beginMove(targets) }
                 Button(L("Paylaş", "Share")) { m.shareEntries(targets) }
                 Button(L("Sil", "Delete")) { m.deleteNow(targets) }
@@ -123,6 +126,7 @@ struct MainView: View {
         .onTapGesture { m.tap(e) }
         .onLongPressGesture(minimumDuration: 0.5) { m.copyEntry(e) }
         .contextMenu {
+            Button(pinLabel) { m.togglePin(targets) }
             Button(L("Taşı", "Move")) { m.beginMove(targets) }
             Button(L("Paylaş", "Share")) { m.shareEntries(targets) }
             Button(L("Sil", "Delete")) { m.deleteNow(targets) }

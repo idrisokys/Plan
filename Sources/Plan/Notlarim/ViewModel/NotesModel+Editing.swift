@@ -17,6 +17,18 @@ extension NotesModel {
         }
     }
 
+    /// "Sabitle" / "Sabitlemeyi kaldır": hepsi sabitliyse kaldırır, değilse hepsini sabitler.
+    func togglePin(_ items: [Entry]) {
+        guard let dir = current, !items.isEmpty else { return }
+        let pin = !items.allSatisfy { $0.pinned }
+        let names = items.map { $0.name }
+        selected = []
+        Task {
+            await self.io { NotesStore.setPinned(dir, names, pin) }
+            self.reload()
+        }
+    }
+
     /// "Paylaş": notlar metin olarak paylaşılır (.txt: içerik, link: adres, not: metin); klasörler paylaşılamaz.
     func shareEntries(_ items: [Entry]) {
         Task {

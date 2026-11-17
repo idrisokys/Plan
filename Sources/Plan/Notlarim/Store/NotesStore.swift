@@ -5,6 +5,7 @@ import Foundation
 /// ayrı dosyalarda (NotesStore+*.swift, PageTitle.swift) durur.
 enum NotesStore {
     private static let ORDER = ".order.txt"
+    private static let PINNED = ".pinned.txt"   // sabitlenen öğelerin adları (yalnızca bu cihazda, eşitlenmez)
     private static let lock = NSRecursiveLock()
 
     // MARK: - Kök klasör
@@ -70,7 +71,53 @@ enum NotesStore {
                 if a.isDir != b.isDir { return a.isDir }
                 return a.name.lowercased() < b.name.lowercased()
             }
-        return ord + rest
+        let all2 = ord + rest
+        let pins = readPinned(all)
+        if pins.isEmpty { return all2 }
+        var marked = all2.map { e -> Entry in
+            var c = e
+            c.pinned = pins.contains(e.name.precomposedStringWithCanonicalMapping)
+            return c
+        }
+        // Sabitlenenler başta (kendi aralarında mevcut sıra korunur)
+        marked = marked.filter { $0.pinned } + marked.filter { !$0.pinned }
+        return marked
+    }
+
+    private static func readPinned(_ all: [Entry]) -> Set<String> {
+        guard let f = all.first(where: { $0.name == PINNED }),
+              let data = try? Data(contentsOf: f.url) else { return [] }
+        return Set(String(decoding: data, as: UTF8.self)
+            .components(separatedBy: .newlines)
+            .filter { !$0.trimmed.isEmpty }
+            .map { $0.precomposedStringWithCanonicalMapping })
+    }
+
+    private static func writePinned(_ dir: URL, _ pins: Set<String>) {
+        let f = dir.appendingPathComponent(PINNED)
+        if pins.isEmpty { try? FileManager.default.removeItem(at: f); return }
+        try? Data(pins.sorted().joined(separator: "\n").utf8).write(to: f, options: .atomic)
+    }
+
+    /// Öğeleri sabitler / sabitlemeyi kaldırır.
+    static func setPinned(_ dir: URL, _ names: [String], _ pinned: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        var pins = readPinned(children(dir))
+        for n in names {
+            let k = n.precomposedStringWithCanonicalMapping
+            if pinned { pins.insert(k) } else { pins.remove(k) }
+        }
+        writePinned(dir, pins)
+    }
+
+    /// Ad değişince / öğe taşınınca / silinince eski ada ait sabitlemeyi yeni ada aktarır (new nil ise kaldırır).
+    private static func renamePin(_ dir: URL, _ old: String, _ new: String?) {
+        var pins = readPinned(children(dir))
+        let k = old.precomposedStringWithCanonicalMapping
+        guard pins.contains(k) else { return }
+        pins.remove(k)
+        if let n = new { pins.insert(n.precomposedStringWithCanonicalMapping) }
+        writePinned(dir, pins)
     }
 
     static func list(_ dir: URL) -> [Entry] {
@@ -199,6 +246,7 @@ enum NotesStore {
         var i = 2
         while taken.contains(norm(name)) { name = "\(base) (\(i))\(ext)"; i += 1 }
         do { try FileManager.default.moveItem(at: e.url, to: target.appendingPathComponent(name)) } catch { return false }
+        renamePin(e.url.deletingLastPathComponent(), e.name, nil)
         saveOrderIn(target, ordered(all).map { $0.name } + [name])
         return true
     }
@@ -245,6 +293,7 @@ enum NotesStore {
         } catch { return false }
         if isNote { try? noteBytes(title.trimmed).write(to: dest, options: .atomic) }
         saveOrderIn(dir, order.map { $0 == e.name ? newName : $0 })
+        renamePin(dir, e.name, newName)
         return true
     }
 
@@ -264,6 +313,7 @@ enum NotesStore {
         do { try Data(text.utf8).write(to: dir.appendingPathComponent(name), options: .atomic) } catch { return false }
         try? FileManager.default.removeItem(at: e.url)
         saveOrderIn(dir, order.map { $0 == e.name ? name : $0 })
+        renamePin(dir, e.name, name)
         return true
     }
 
@@ -288,7 +338,9 @@ enum NotesStore {
             t = d.appendingPathComponent(ext.isEmpty ? "\(base)_\(n)" : "\(base)_\(n).\(ext)")
             n += 1
         }
-        do { try fm.moveItem(at: url, to: t); return true } catch { return false }
+        do { try fm.moveItem(at: url, to: t) } catch { return false }
+        renamePin(url.deletingLastPathComponent(), name, nil)
+        return true
     }
 
     /// Eski davranış: Çöp Kutusu'na gönderir (artık kullanılmıyor).

@@ -11,6 +11,8 @@ struct Entry: Identifiable, Hashable, Sendable {
     /// Listede gösterilen ad (uzantısız).
     let title: String
     let ext: String
+    /// Sabitlenmiş mi? (listenin başında durur)
+    var pinned = false
     var id: String { key }
 
     init(name: String, url: URL, isDir: Bool) {

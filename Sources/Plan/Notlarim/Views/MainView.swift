@@ -37,12 +37,6 @@ struct MainView: View {
                     // Çöp kutusu: Link klasöründeki her şeyi macOS Çöp Kutusu'na gönderir (önce sorar)
                     Button { m.askTrashAll = true } label: { Image(systemName: "trash") }
                         .help(L("Tüm notları Çöp Kutusu'na gönder", "Send all notes to Trash"))
-                    // Eşitle: aynı ağdaki açık cihazlarla (Hızlı Paylaş) notları eşitler
-                    Button { m.syncNow() } label: {
-                        if m.syncing { ProgressView().controlSize(.small) } else { Image(systemName: "arrow.triangle.2.circlepath") }
-                    }
-                    .disabled(m.syncing)
-                    .help(L("Cihazlarla eşitle", "Sync with devices"))
                 }
                 // İkonların SAĞINDA; "Notlarım" başlığı gösterilmez, yalnızca klasör içindeyken / arama ve seçim sırasında bilgi yazısı çıkar
                 if m.title != L("Notlarım", "My Notes") {

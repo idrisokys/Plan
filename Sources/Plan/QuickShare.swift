@@ -28,6 +28,8 @@ struct QSInfo: Equatable {
     }
 }
 
+extension Notification.Name { static let notesChangedBySync = Notification.Name("notesChangedBySync") }
+
 final class QuickShare: ObservableObject {
     static let shared = QuickShare()
     @Published var running = false
@@ -35,6 +37,23 @@ final class QuickShare: ObservableObject {
     @Published var info: QSInfo?        // son gönderme / alma durumu (paylaşım ekranında tek satır)
     @Published var devices: [QSDevice] = []
     @Published var sendingTo = Set<String>()
+    @Published var syncing = false
+
+    /// Paylaşım ekranındaki ⇄ simgesi: seçilen cihazlarla ~/Link klasörünü eşitler (mode: 0 iki cihazda aynı, 1 bu cihaza göre, 2 karşıdakine göre).
+    func sync(mode: Int, with devices: [QSDevice]) {
+        guard !syncing, !devices.isEmpty else { return }
+        syncing = true
+        post(.sending, L("Eşitleniyor…", "Syncing…"))
+        let targets = devices.map { NoteSync.Peer(id: $0.id, name: $0.name, endpoint: $0.endpoint) }
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
+            let r = NoteSync.run(mode: mode, targets: targets)
+            DispatchQueue.main.async {
+                self.syncing = false
+                NotificationCenter.default.post(name: .notesChangedBySync, object: nil)
+            }
+            post(r.error == nil && r.errors.isEmpty ? .sent : .failed, r.message)
+        }
+    }
 
     private var listener: NWListener?
     private var browser: NWBrowser?
@@ -183,6 +202,9 @@ final class QuickShare: ObservableObject {
 
     fileprivate func remove(_ h: ConnHandler) { DispatchQueue.main.async { self.conns.remove(h) } }
 
+    /// Eşitleme ~/Link içeriğini değiştirdi: açık Notlarım penceresi listeyi yeniler.
+    fileprivate func notesChanged() { DispatchQueue.main.async { NotificationCenter.default.post(name: .notesChangedBySync, object: nil) } }
+
     fileprivate func receiving(_ name: String) { post(.receiving, "Alınıyor: \(name)") }
     fileprivate func received(_ name: String, folder: URL) { post(.received, "Alındı: \(name)", folder: folder) }
 
@@ -205,6 +227,8 @@ private final class ConnHandler: Hashable {
     private var left: Int64 = 0
     private var fh: FileHandle?
     private var part: URL?
+    private var syncDest: URL?          // Notlarım eşitlemesi: dosyanın ~/Link içindeki hedefi (nil = düz dosya alma)
+    private var syncMtime: Int64 = -1
 
     init(_ c: NWConnection, owner: QuickShare?) { self.c = c; self.owner = owner }
 
@@ -232,22 +256,41 @@ private final class ConnHandler: Hashable {
         let first = lines[0].split(separator: " ").map(String.init)
         let method = first.first ?? "", target = first.count > 1 ? first[1] : ""
         var len: Int64 = -1
+        var sync = false, isDir = false
+        var mtime: Int64 = -1
         for l in lines.dropFirst() {
             guard let i = l.firstIndex(of: ":") else { continue }
             let k = l[..<i].lowercased(), v = l[l.index(after: i)...].trimmingCharacters(in: .whitespaces)
             if k == "content-length" { len = Int64(v) ?? -1 }
             else if k == "x-name" { name = v.replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? v }
+            else if k == "x-sync" { sync = v == "1" }
+            else if k == "x-mtime" { mtime = Int64(v) ?? -1 }
+            else if k == "x-dir" { isDir = v == "1" }
         }
-        // Notlarım eşitleme uç noktaları (/m, /f, /d) bu sürümde yok; yalnızca dosya alma (/u) desteklenir.
+        // Notlarım eşitleme uç noktaları (Android ile aynı): GET /m (liste), GET /f (dosya), DELETE /x (sil), POST /d (klasör)
+        if (method == "GET" && (target == "/m" || target == "/f")) || (method == "DELETE" && target == "/x") || (method == "POST" && target == "/d") {
+            serveSync(method, target, isDir: isDir); return
+        }
         guard method == "POST", target == "/u", len >= 0 else { reply(target == "/u" ? "400 Bad Request" : "500 Error"); return }
 
-        name = Self.cleanName(name)
-        let p = QuickShare.receiveDir.appendingPathComponent("\(name).\(UUID().uuidString.prefix(8)).part")
+        let saveTo: URL
+        let partName: String
+        if sync {
+            // Eşitleme: X-Name ~/Link içindeki göreli yoldur (alt klasörlü); zaman korunur, aynı yoldaki dosyanın üzerine yazılır
+            guard let root = NotesStore.root, let dst = NoteSync.resolve(name, root: root) else { reply("400 Bad Request"); return }
+            syncDest = dst; syncMtime = mtime
+            saveTo = dst.deletingLastPathComponent(); partName = dst.lastPathComponent; name = partName
+            try? FileManager.default.createDirectory(at: saveTo, withIntermediateDirectories: true)
+        } else {
+            name = Self.cleanName(name)
+            saveTo = QuickShare.receiveDir; partName = name
+        }
+        let p = saveTo.appendingPathComponent("\(partName).\(UUID().uuidString.prefix(8)).part")
         guard FileManager.default.createFile(atPath: p.path, contents: nil), let h = try? FileHandle(forWritingTo: p) else {
             reply("500 Error"); return
         }
         part = p; fh = h; left = len; headerDone = true; buf = Data()
-        owner?.receiving(name)
+        if syncDest == nil { owner?.receiving(name) }
         if left == 0 { complete() } else if !rest.isEmpty { write(rest) }
     }
 
@@ -263,12 +306,58 @@ private final class ConnHandler: Hashable {
         var ok = !werr
         var saveDir = QuickShare.receiveDir
         if ok, let p = part {
-            let dest = Self.unique(saveDir, name)
-            do { try FileManager.default.moveItem(at: p, to: dest); name = dest.lastPathComponent; saveDir = dest.deletingLastPathComponent() } catch { ok = false }
+            let fm = FileManager.default
+            if let d = syncDest {
+                if syncMtime > 0 { try? fm.setAttributes([.modificationDate: Date(timeIntervalSince1970: Double(syncMtime) / 1000)], ofItemAtPath: p.path) }
+                do { if fm.fileExists(atPath: d.path) { try fm.removeItem(at: d) }; try fm.moveItem(at: p, to: d) } catch { ok = false }
+            } else {
+                let dest = Self.unique(saveDir, name)
+                do { try fm.moveItem(at: p, to: dest); name = dest.lastPathComponent; saveDir = dest.deletingLastPathComponent() } catch { ok = false }
+            }
         }
         if !ok, let p = part { try? FileManager.default.removeItem(at: p) }
-        if ok { owner?.received(name, folder: saveDir) } else { owner?.post(.failed, "Alma yarım kaldı: \(name)") }
+        if ok { if syncDest == nil { owner?.received(name, folder: saveDir) } else { owner?.notesChanged() } }
+        else { owner?.post(.failed, "Alma yarım kaldı: \(name)") }
         reply(ok ? "200 OK" : "500 Error")
+    }
+
+    /// Eşitleme uç noktaları; hepsi ~/Link içinde çalışır.
+    private func serveSync(_ method: String, _ target: String, isDir: Bool) {
+        guard let root = NotesStore.root else { reply("500 Error"); return }
+        let fm = FileManager.default
+        switch target {
+        case "/m":
+            var out = ""
+            for it in NoteSync.local(root: root).values {
+                out += "\(it.dir ? "D" : "F")\t\(it.size)\t\(it.mtime)\t\(NoteSync.enc(it.rel))\n"
+            }
+            respond("200 OK", body: Data(out.utf8))
+        case "/f":
+            guard let f = NoteSync.resolve(name, root: root), let data = try? Data(contentsOf: f) else { reply("404 Not Found"); return }
+            let mt = NoteSync.ms((try? f.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate)
+            respond("200 OK", extra: "X-Mtime: \(mt)\r\n", body: data)
+        case "/x":
+            // Silinen öğe Çöp Kutusu'na gider (geri alınabilir)
+            guard let f = NoteSync.resolve(name, root: root, dir: isDir) else { reply("500 Error"); return }
+            var ok = true
+            if fm.fileExists(atPath: f.path) { ok = (try? fm.trashItem(at: f, resultingItemURL: nil)) != nil }
+            if ok { owner?.notesChanged() }
+            reply(ok ? "200 OK" : "500 Error")
+        default:
+            guard let d = NoteSync.resolve(name, root: root, dir: true) else { reply("500 Error"); return }
+            var isD: ObjCBool = false
+            let ok = (fm.fileExists(atPath: d.path, isDirectory: &isD) && isD.boolValue)
+                || (try? fm.createDirectory(at: d, withIntermediateDirectories: true)) != nil
+            if ok { owner?.notesChanged() }
+            reply(ok ? "200 OK" : "500 Error")
+        }
+    }
+
+    private func respond(_ st: String, extra: String = "", body: Data) {
+        finished = true
+        var d = Data("HTTP/1.1 \(st)\r\nContent-Length: \(body.count)\r\n\(extra)Connection: close\r\n\r\n".utf8)
+        d.append(body)
+        c.send(content: d, completion: .contentProcessed { [self] _ in c.cancel(); owner?.remove(self) })
     }
 
     private func fail() {

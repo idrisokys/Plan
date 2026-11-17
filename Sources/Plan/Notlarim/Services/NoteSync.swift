@@ -6,6 +6,9 @@ import Network
 ///  - karşı cihazda olmayan dosya gönderilir, bizde olmayan dosya alınır (eksikler tamamlanır),
 ///  - iki tarafta da olan aynı yoldaki dosyanın DEĞİŞTİRİLME ZAMANI yeni olanı eskisinin üzerine yazar.
 /// Silinen dosyalar eşitlenmez (silinen, diğer cihazda varsa geri gelir).
+/// Modlar: 0 = iki cihaz aynı olsun (birleştirir), 1 = bu cihaza göre (karşıdaki bu cihazın aynısı olur),
+/// 2 = karşıdaki cihaza göre (bu cihaz karşıdakinin aynısı olur; silinenler Çöp Kutusu'na gider).
+/// Eşitleme Hızlı Paylaş penceresinden (cihaz listesindeki ⇄ simgesi) başlatılır.
 /// Uç noktalar: GET /m (liste), GET /f (dosya), POST /d (klasör), POST /u + X-Sync (dosya yaz).
 enum NoteSync {
     /// Dosya sistemlerinin zaman çözünürlüğü farkı için tolerans (ms): bundan yakın zamanlar "aynı" sayılır.
@@ -13,18 +16,23 @@ enum NoteSync {
     private static let maxDepth = 24
 
     struct Item { let rel: String; let dir: Bool; let size: Int64; let mtime: Int64 }
-    struct Peer { let name: String; let endpoint: NWEndpoint }
+    struct Peer { let id: String; let name: String; let endpoint: NWEndpoint }
     struct SyncError: Error { let text: String }
 
     struct Outcome {
-        var peers = 0, sent = 0, got = 0
+        var peers = 0, sent = 0, got = 0, deleted = 0, mode = 0
         var errors: [String] = []
         var error: String?
 
         var message: String {
             if let e = error { return L("Eşitleme hatası: \(e)", "Sync error: \(e)") }
             if peers == 0 { return errors.first ?? L("Açık cihaz bulunamadı", "No open device found") }
-            let base = L("Eşitlendi: \(peers) cihaz, \(sent) gönderildi, \(got) alındı", "Synced: \(peers) device(s), \(sent) sent, \(got) received")
+            let base: String
+            switch mode {
+            case 2: base = L("Karşıdaki cihaza göre eşitlendi: \(got) alındı, \(deleted) silindi", "Synced to the other device: \(got) received, \(deleted) deleted")
+            case 1: base = L("Bu cihaz esas alındı: \(peers) cihaz, \(sent) gönderildi, \(deleted) silindi", "This device is now the master: \(peers) device(s), \(sent) sent, \(deleted) deleted")
+            default: base = L("Eşitlendi: \(peers) cihaz, \(sent) gönderildi, \(got) alındı", "Synced: \(peers) device(s), \(sent) sent, \(got) received")
+            }
             return errors.isEmpty ? base : base + "\n" + errors[0]
         }
     }
@@ -36,7 +44,7 @@ enum NoteSync {
         return !l.hasSuffix(".part") && (l.hasSuffix(".url") || l.hasSuffix(".txt"))
     }
 
-    private static func enc(_ s: String) -> String {
+    static func enc(_ s: String) -> String {
         s.addingPercentEncoding(withAllowedCharacters: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? s
     }
 
@@ -63,7 +71,7 @@ enum NoteSync {
         return fc.hasPrefix(bc + "/") ? f : nil
     }
 
-    private static func ms(_ d: Date?) -> Int64 { Int64((d?.timeIntervalSince1970 ?? 0) * 1000) }
+    static func ms(_ d: Date?) -> Int64 { Int64((d?.timeIntervalSince1970 ?? 0) * 1000) }
 
     /// Yerel not ağacı: göreli yol → öğe (yollar NFC; Android ile aynı yazım).
     static func local(root: URL) -> [String: Item] {
@@ -180,7 +188,10 @@ enum NoteSync {
         defer { c.close() }
         try c.send(Data("GET /m HTTP/1.1\r\nHost: qs\r\nConnection: close\r\n\r\n".utf8))
         let h = try c.readHead()
-        guard h.status == 200 else { throw SyncError(text: "manifest \(h.status)") }
+        guard h.status == 200 else {
+            throw SyncError(text: L("karşı cihaz Link eşitlemesini desteklemiyor (kod \(h.status)); orada uygulamayı güncelleyin",
+                                    "the other device does not support Link sync (code \(h.status)); update the app there"))
+        }
         let len = min(Int(h.headers["content-length"] ?? "") ?? 0, 8 << 20)
         var data = Data()
         try c.readBody(len) { data.append($0) }
@@ -286,53 +297,97 @@ enum NoteSync {
         return (sent, got)
     }
 
-    // MARK: Cihaz keşfi + çalıştırma
-
-    private final class Found: @unchecked Sendable {
-        private let l = NSLock()
-        private var list = [Peer]()
-        func set(_ p: [Peer]) { l.lock(); list = p; l.unlock() }
-        func get() -> [Peer] { l.lock(); defer { l.unlock() }; return list }
+    private static func deleteRemote(_ p: Peer, _ rel: String, _ dir: Bool) throws {
+        // Bilerek DELETE ve Content-Length yok: bu özelliği bilmeyen eski sürüm isteği reddeder (boş dosya oluşturmaz).
+        let c = try Conn(p.endpoint)
+        defer { c.close() }
+        try c.send(Data("DELETE /x HTTP/1.1\r\nHost: qs\r\nX-Name: \(enc(rel))\r\nX-Dir: \(dir ? 1 : 0)\r\nConnection: close\r\n\r\n".utf8))
+        let h = try c.readHead()
+        guard h.status == 200 else { throw SyncError(text: "\(rel): " + L("silinemedi / eski sürüm", "could not delete / old version")) }
     }
 
-    /// Ağdaki açık cihazları bulur: ilk cihazdan sonra kısa süre daha beklenir, hiç bulunamazsa 4 sn'de vazgeçilir.
-    private static func discover() -> [Peer] {
-        let found = Found()
-        let me = Host.current().localizedName ?? ""
-        let b = NWBrowser(for: .bonjourWithTXTRecord(type: "_qshare._tcp", domain: nil), using: .tcp)
-        b.browseResultsChangedHandler = { results, _ in
-            var out = [Peer]()
-            for r in results {
-                guard case let .service(name, _, _, _) = r.endpoint else { continue }
-                var title = name
-                if case let .bonjour(txt) = r.metadata { title = txt.dictionary["n"] ?? name }
-                if !me.isEmpty && title == me { continue }      // bu Mac'in kendisi
-                out.append(Peer(name: title, endpoint: r.endpoint))
-            }
-            found.set(out)
+    private static func ordered(_ keys: [String]) -> [String] {
+        keys.sorted { a, b in
+            let ca = a.filter { $0 == "/" }.count, cb = b.filter { $0 == "/" }.count
+            return ca != cb ? ca < cb : a < b       // üst klasörler önce
         }
-        b.start(queue: .global(qos: .userInitiated))
-        defer { b.cancel() }
-        let t0 = Date()
-        var firstAt: Date?
-        while true {
-            let now = Date()
-            if firstAt == nil, !found.get().isEmpty { firstAt = now }
-            if let f = firstAt, now.timeIntervalSince(f) >= 0.8 { break }
-            if firstAt == nil, now.timeIntervalSince(t0) >= 4 { break }
-            Thread.sleep(forTimeInterval: 0.15)
-        }
-        return found.get()
     }
 
-    /// Ağdaki tüm açık cihazlarla eşitler. Arka plan iş parçacığında çağrılmalı (ağ + disk).
-    static func run() -> Outcome {
-        var res = Outcome()
-        guard let root = NotesStore.root else { res.error = L("Link klasörü yok", "no Link folder"); return res }
-        for p in discover() {
+    /// Karşı cihazı bu cihazın aynısı yapar; (gönderilen, silinen) döndürür. Bu cihazda hiçbir şey değişmez.
+    private static func mirrorPeer(_ p: Peer, root: URL, errs: inout [String]) throws -> (Int, Int) {
+        let remote = try fetchManifest(p)
+        let loc = local(root: root)
+        var sent = 0, deleted = 0
+        var gone = [String]()
+        let stale = remote.keys.filter { k in loc[k] == nil || loc[k]!.dir != remote[k]!.dir }
+        for k in ordered(Array(stale)) {
+            if gone.contains(where: { k.hasPrefix($0 + "/") }) { continue }
+            let r = remote[k]!
+            do { try deleteRemote(p, k, r.dir); deleted += 1; if r.dir { gone.append(k) } }
+            catch { errs.append("\(p.name): \(errText(error))") }
+        }
+        for k in ordered(Array(loc.keys)) {
+            let l = loc[k]!
+            var r = remote[k]
+            if let x = r, x.dir != l.dir || gone.contains(k) { r = nil }
             do {
-                let (a, b) = try syncPeer(p, root: root, errs: &res.errors)
-                res.peers += 1; res.sent += a; res.got += b
+                if l.dir { if r == nil { try mkdirRemote(p, k) } }
+                else if r == nil || r!.size != l.size || abs(l.mtime - r!.mtime) > tol { try push(p, l, root: root); sent += 1 }
+            } catch { errs.append("\(p.name): \(errText(error))") }
+        }
+        return (sent, deleted)
+    }
+
+    /// Bu cihazı karşı cihazın aynısı yapar; (alınan, silinen) döndürür. Silinenler Çöp Kutusu'na gider.
+    private static func pullMirror(_ p: Peer, root: URL, errs: inout [String]) throws -> (Int, Int) {
+        let remote = try fetchManifest(p)
+        let loc = local(root: root)
+        var got = 0, deleted = 0
+        var gone = [String]()
+        let stale = loc.keys.filter { k in remote[k] == nil || remote[k]!.dir != loc[k]!.dir }
+        for k in ordered(Array(stale)) {
+            if gone.contains(where: { k.hasPrefix($0 + "/") }) { continue }
+            let l = loc[k]!
+            do {
+                if let f = resolve(k, root: root, dir: l.dir), FileManager.default.fileExists(atPath: f.path) {
+                    try FileManager.default.trashItem(at: f, resultingItemURL: nil)
+                }
+                deleted += 1; if l.dir { gone.append(k) }
+            } catch { errs.append("\(p.name): \(errText(error))") }
+        }
+        for k in ordered(Array(remote.keys)) {
+            let r = remote[k]!
+            var l = loc[k]
+            if let x = l, x.dir != r.dir || gone.contains(k) { l = nil }
+            do {
+                if r.dir { if l == nil, let d = resolve(k, root: root, dir: true) { try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true) } }
+                else if l == nil || l!.size != r.size || abs(l!.mtime - r.mtime) > tol { try pull(p, r, root: root); got += 1 }
+            } catch { errs.append("\(p.name): \(errText(error))") }
+        }
+        return (got, deleted)
+    }
+
+    /// Seçilen cihazlarla eşitler. Arka plan iş parçacığında çağrılmalı (ağ + disk).
+    /// mode: 0 = iki cihazda aynı olsun, 1 = bu cihaza göre, 2 = karşıdaki cihaza göre (ilk seçilen).
+    static func run(mode: Int, targets: [Peer]) -> Outcome {
+        var res = Outcome()
+        res.mode = mode
+        guard let root = NotesStore.root else { res.error = L("Link klasörü yok", "no Link folder"); return res }
+        if targets.isEmpty { res.error = L("cihaz seçilmedi", "no device selected"); return res }
+        for p in (mode == 2 ? Array(targets.prefix(1)) : targets) {
+            do {
+                switch mode {
+                case 1:
+                    let (a, b) = try mirrorPeer(p, root: root, errs: &res.errors)
+                    res.sent += a; res.deleted += b
+                case 2:
+                    let (a, b) = try pullMirror(p, root: root, errs: &res.errors)
+                    res.got += a; res.deleted += b
+                default:
+                    let (a, b) = try syncPeer(p, root: root, errs: &res.errors)
+                    res.sent += a; res.got += b
+                }
+                res.peers += 1
             } catch {
                 res.errors.append("\(p.name): \(errText(error))")
             }

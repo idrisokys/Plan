@@ -29,10 +29,10 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Açıkken uy
 - Notlar `~/Link` klasöründe; Android'deki Link klasörüyle aynı biçim. Klasörler, yeniden adlandırma, taşıma, sıralama.
 - Satırın sağındaki ⋮: Düzenle / Taşı / Paylaş / Sil (birden çok seçiliyse hepsine); ⋮ basılı tutunca düzenleme modu.
 - Sil = silmez; `~/.onemsiz` gizli klasörüne taşır. Araç çubuğundaki **çöp kutusu** (klasör ekle simgesinin yanında) onay sorup Link klasöründeki her şeyi macOS Çöp Kutusu'na gönderir.
-- Araç çubuğu: başlığın hemen sağında klasör ekle, yenile, çöp kutusu, eşitle. Menü çubuğu paneli Notlarım açıkken pencereyi kapatmasın diye sola kayar.
+- Araç çubuğu: başlığın hemen sağında klasör ekle, yenile, çöp kutusu. Menü çubuğu paneli Notlarım açıkken pencereyi kapatmasın diye sola kayar.
 - Kısa not satırına tıklamak metni panoya kopyalar; satıra uzun basmak kopyalar.
 - `.txt` içinde arama (⌘F), eşleşmeler işaretli, ▲▼ ile gezinme.
-- Eşitle (⇄, ⌘⇧S): aynı ağdaki açık Hızlı Paylaş cihazlarıyla `~/Link` içeriğini eşitler.
+- Eşitleme: Hızlı Paylaş açıkken cihaz listesinin üstündeki ⇄ simgesi; açılan pencerede cihazlar işaretlenir ve "Bu cihaza göre / Karşıdaki cihaza göre / İki cihazda aynı olsun" seçilir. `~/Link` içeriği (Android'deki `<ana dizin>/Link` ile) eşitlenir; silinenler Çöp Kutusu'na gider.
 - Paylaş menüsü: Safari/Paylaş menüsünde **Notlarım** (uygulamanın içindeki `PlanShare.appex` eklentisi).
 - Adres şeması: `plan://add?t=…` ve `plan://search?q=…`.
 - Chrome eklentisi: `chrome-extension/` klasörü uygulamanın içine konur. Notlarım penceresi açıkken menü çubuğunda

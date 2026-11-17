@@ -58,6 +58,8 @@ struct ContentView: View {
     @State private var addOpen = false
     @State private var newName = ""
     @State private var newURL = ""
+    @State private var syncOpen = false          // ⇄ simgesinin penceresi
+    @State private var syncPicked = Set<String>()
     @FocusState private var focused: Bool
 
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -126,6 +128,7 @@ struct ContentView: View {
     // MARK: Paylaşım açıkken: o an açık cihazlar, sağında klasör ikonu
     private var devicesList: some View {
         VStack(spacing: 0) {
+            syncHeader
             if qs.devices.isEmpty {
                 Text("Açık cihaz aranıyor…").font(.system(size: 15)).foregroundStyle(dim)
                     .frame(maxWidth: .infinity, minHeight: 44)
@@ -149,6 +152,44 @@ struct ContentView: View {
         }
         .padding(.vertical, 4)
         .background(RoundedRectangle(cornerRadius: 14).fill(menuBG))
+    }
+
+    /// Cihaz listesinin üst satırı: sağda ⇄ (Link klasörünü eşitle). Pencerede cihazlar işaretlenir, eşitleme yöntemi seçilir.
+    private var syncHeader: some View {
+        HStack(spacing: 8) {
+            Spacer(minLength: 0)
+            Button { syncOpen.toggle() } label: {
+                if qs.syncing { ProgressView().controlSize(.small).frame(width: 30, height: 30) }
+                else { circle("arrow.triangle.2.circlepath", size: 30) }
+            }
+            .buttonStyle(.plain).disabled(qs.syncing)
+            .help(L("Cihazlarla eşitle (Link klasörü)", "Sync with devices (Link folder)"))
+            .popover(isPresented: $syncOpen, arrowEdge: .top) { syncPopover }
+        }.padding(.horizontal, 8).padding(.top, 4)
+    }
+
+    private var syncPopover: some View {
+        let chosen = qs.devices.filter { syncPicked.contains($0.id) }
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(L("Nasıl eşitlensin?", "How to sync?")).font(.headline)
+            if qs.devices.isEmpty {
+                Text(L("Açık cihaz bulunamadı", "No open device found")).foregroundStyle(.secondary)
+            } else {
+                ForEach(qs.devices) { d in
+                    Toggle(d.name, isOn: Binding(
+                        get: { syncPicked.contains(d.id) },
+                        set: { if $0 { syncPicked.insert(d.id) } else { syncPicked.remove(d.id) } }))
+                }
+            }
+            Divider()
+            ForEach([(1, L("Bu cihaza göre", "Based on this device")),
+                     (2, L("Karşıdaki cihaza göre", "Based on the other device")),
+                     (0, L("İki cihazda aynı olsun", "Make both the same"))], id: \.0) { m in
+                Button(m.1) { syncOpen = false; qs.sync(mode: m.0, with: chosen) }
+                    .disabled(chosen.isEmpty)
+            }
+        }
+        .padding(14).frame(minWidth: 230)
     }
 
     /// Gönderme / alma bilgisi: bildirim yok, yalnızca paylaşım ekranında tek satır.

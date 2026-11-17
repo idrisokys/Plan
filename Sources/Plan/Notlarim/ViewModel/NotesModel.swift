@@ -5,6 +5,18 @@ import AppKit
 final class NotesModel: ObservableObject {
     static let shared = NotesModel()
 
+    /// Hızlı Paylaş eşitlemesi ~/Link içeriğini değiştirince listeyi yeniler (art arda gelen bildirimler birleştirilir).
+    private static var reloadPending = false
+    private let syncObserver = NotificationCenter.default.addObserver(forName: .notesChangedBySync, object: nil, queue: .main) { _ in
+        Task { @MainActor in
+            if NotesModel.reloadPending { return }
+            NotesModel.reloadPending = true
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            NotesModel.reloadPending = false
+            NotesModel.shared.reload()
+        }
+    }
+
     @Published var root: URL? = NotesStore.root
     @Published var stack: [Entry] = []
     @Published var loaded: [Entry]? = nil
@@ -30,8 +42,6 @@ final class NotesModel: ObservableObject {
     @Published var txtQuery = "" { didSet { txtRecompute() } }
     @Published var txtMatches: [NSRange] = []
     @Published var txtCur = 0
-    // Üstteki eşitle tuşu: devam eden eşitleme
-    @Published var syncing = false
     // Çöp kutusu düğmesi: onay sorusu
     @Published var askTrashAll = false
 

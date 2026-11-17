@@ -29,8 +29,6 @@ struct PlanApp: App {
                     .keyboardShortcut("e", modifiers: .command)
                 Button(L("Yenile", "Refresh")) { notes.refresh() }
                     .keyboardShortcut("r", modifiers: .command)
-                Button(L("Cihazlarla Eşitle", "Sync with Devices")) { notes.syncNow() }
-                    .keyboardShortcut("s", modifiers: [.command, .shift])
                 Button(L("Geri", "Back")) { notes.goBack() }
                     .keyboardShortcut("[", modifiers: .command)
                 Divider()

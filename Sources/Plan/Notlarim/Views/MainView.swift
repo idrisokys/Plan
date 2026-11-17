@@ -13,12 +13,15 @@ struct MainView: View {
             else if m.editMode && m.selected.count > 1 { MultiBar() }
             else { AddBar() }
         }
-        // Başlık sistem başlığı yerine araç çubuğunda durur; simgeler başlıktan hemen sonra sağa doğru sıralanır.
+        // Pencere başlığı da boş: "Notlarım" yazısı hiçbir yerde görünmez.
+        .navigationTitle("")
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
-                // Başlık ("Notlarım" / klasör adı / arama bilgisi) en solda durur
-                Text(m.title).font(.headline).lineLimit(1).truncationMode(.tail)
-                    .frame(maxWidth: 160, alignment: .leading)
+                // Başlık yok: "Notlarım" ve klasör adı gösterilmez; yalnızca arama bilgisi / seçili sayısı görünür
+                if m.searchQuery != nil || (m.editMode && !m.selected.isEmpty) {
+                    Text(m.title).font(.headline).lineLimit(1).truncationMode(.tail)
+                        .frame(maxWidth: 160, alignment: .leading)
+                }
                 // Aramada yenile en solda (aramayı yeniler); normal görünümde çöp kutusunun soluna taşınır
                 if m.searchQuery != nil {
                     Button { m.refresh() } label: { Image(systemName: "arrow.clockwise") }

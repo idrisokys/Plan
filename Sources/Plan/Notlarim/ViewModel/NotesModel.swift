@@ -27,6 +27,7 @@ final class NotesModel: ObservableObject {
     @Published var hits: [Hit]? = nil
     @Published var sheet: Sheet? = nil
     @Published var moving: [Entry] = []
+    @Published var sharing: [URL] = []         // Hızlı Paylaş ile gönderilecek dosyalar
     @Published var renaming: Entry? = nil      // düzenleme modunda tek öğe seçiliyse o öğe (adı altta değiştirilir)
     @Published var renameText = ""
     /// ⋮ menüsindeki "Düzenle": yalnızca o satırın adı alttaki alanda düzenlenir; seçim modu açılmaz.
@@ -55,7 +56,7 @@ final class NotesModel: ObservableObject {
     // Çöp kutusu düğmesi: onay sorusu
 
     // Yazı boyutu (punto): liste, arama sonuçları, alt alanlar ve .txt görünümü bunu kullanır; kalıcıdır.
-    static let minFont = 10.0, maxFont = 32.0, defaultFont = 15.0
+    static let minFont = 10.0, maxFont = 32.0, defaultFont = 16.0
     @Published var fontSize: Double = NotesModel.loadFontSize() {
         didSet { UserDefaults.standard.set(fontSize, forKey: "fontSize") }
     }
@@ -75,9 +76,14 @@ final class NotesModel: ObservableObject {
         if let r = renaming, !r.isDir, !r.isTxt { return 20_000 }
         return maxChars
     }
-    /// Ekleme / ad alanı yüksekliği: eski 56–140 pt'ten 3 satır kadar küçük.
-    var editorMinHeight: CGFloat { max(30, 56 - 3 * fontSize * 1.25) }
-    var editorMaxHeight: CGFloat { max(editorMinHeight, 140 - 3 * fontSize * 1.25) }
+    /// Ekleme / ad alanı yüksekliği (Android: en az 2, en çok 8 satır). Satır sayısı yaklaşık hesaplanır.
+    func editorHeight(for text: String) -> CGFloat {
+        let perLine = 40
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+            .reduce(0) { $0 + max(1, ($1.count + perLine - 1) / perLine) }
+        let n = min(8, max(2, lines))
+        return CGFloat(n) * fontSize * 1.25 + 20
+    }
     let addMax = NotesStore.addMax     // alttaki ekleme alanı sınırı (panelle ortak)
     var prevLinkCount = 0   // Enter ile gönderimi algılamak için önceki uzunluk
 

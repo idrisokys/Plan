@@ -1,15 +1,12 @@
 import SwiftUI
 import AppKit
 
+/// Android'deki "Taşı" penceresi: klasör ağacında gezinip hedef seçilir.
 struct MoveSheet: View {
-    /// move: öğeleri taşır. placeD: "Veri yeri D" klasörünü seçer.
-    enum Mode { case move, placeD }
-
     @EnvironmentObject var m: NotesModel
     let root: URL
     let current: URL
     let exclude: Set<String>   // klasör kendi içine taşınamaz
-    var mode: Mode = .move
 
     @State private var stack: [Entry] = []
     @State private var folders: [Entry] = []
@@ -20,51 +17,54 @@ struct MoveSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text((mode == .move ? L("Taşı: ", "Move to: ") : L("Veri yeri D: ", "Data place D: ")) + (stack.last?.name ?? L("Ana liste", "Main list"))).font(.headline).lineLimit(1)
-            List {
-                if !stack.isEmpty {
-                    line("arrow.left", L("Üst klasör", "Parent folder")) { stack.removeLast() }
-                }
-                if !creating {
-                    line("folder.badge.plus", L("Yeni klasör oluştur", "Create new folder")) { creating = true }
-                } else {
-                    HStack {
-                        TextField(L("Klasör adı", "Folder name"), text: $newName)
-                            .textFieldStyle(.roundedBorder)
-                            .onSubmit { createFolder() }
-                        Button(L("Oluştur", "Create")) { createFolder() }
-                            .disabled(newName.trimmed.isEmpty)
+            Text(L("Taşı: ", "Move: ") + (stack.last?.name ?? L("Ana liste", "Main list")))
+                .font(.system(size: 20)).foregroundStyle(NT.onSurface).lineLimit(1)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if !stack.isEmpty {
+                        line(MI.arrowBack, L("Üst klasör", "Parent folder")) { stack.removeLast() }
+                    }
+                    if !creating {
+                        line(MI.createNewFolder, L("Yeni klasör oluştur", "Create new folder")) { creating = true }
+                    } else {
+                        HStack {
+                            TextField(L("Klasör adı", "Folder name"), text: $newName)
+                                .textFieldStyle(.roundedBorder)
+                                .onSubmit { createFolder() }
+                            Button(L("Oluştur", "Create")) { createFolder() }
+                                .disabled(newName.trimmed.isEmpty)
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    ForEach(folders) { f in
+                        line(MI.folder, f.name) { stack.append(f) }
                     }
                 }
-                ForEach(folders) { f in
-                    line("folder", f.name) { stack.append(f) }
-                }
             }
-            .listStyle(.inset)
             .frame(height: 300)
-            HStack {
+            HStack(spacing: 8) {
                 Spacer()
                 Button(L("İptal", "Cancel")) { m.sheet = nil; m.moving = [] }
                     .keyboardShortcut(.cancelAction)
-                Button(mode == .move ? L("Buraya taşı", "Move here") : L("Buraya kaydet", "Save here")) {
-                    if mode == .move { m.performMove(to: dir) } else { m.performPlaceD(to: dir) }
-                }
+                Button(L("Buraya taşı", "Move here")) { m.performMove(to: dir) }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(mode == .move && dir.path == current.path)
+                    .disabled(dir.path == current.path)
             }
         }
-        .padding(20)
+        .padding(24)
         .frame(width: 420)
+        .background(NT.dialog)
         .task(id: dir) { await loadFolders() }
     }
 
     @ViewBuilder
     private func line(_ icon: String, _ text: String, action: @escaping () -> Void) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon).frame(width: 22)
-            Text(text).lineLimit(1)
+        HStack(spacing: 16) {
+            MIcon(icon).foregroundStyle(NT.onSurface)
+            Text(text).font(.system(size: 16)).foregroundStyle(NT.onSurface).lineLimit(1)
             Spacer()
         }
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
     }

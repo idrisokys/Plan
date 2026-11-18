@@ -23,6 +23,8 @@ struct WindowDock: NSViewRepresentable {
                 if !NotesWindow.requested { w.close(); return }
                 w.isRestorable = false
                 w.level = NotesModel.shared.alwaysOnTop ? .floating : .normal   // varsayılan: normal; sağ üstteki raptiyeyle değişir
+                w.appearance = NSAppearance(named: .darkAqua)   // Android Notlarım ekranı gibi koyu
+                w.backgroundColor = NT.bgNS
                 w.titleVisibility = .hidden
                 w.title = ""                  // "Notlarım" başlığı gösterilmez
                 w.setContentSize(WindowDock.size)

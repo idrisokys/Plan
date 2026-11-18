@@ -7,13 +7,13 @@ struct FolderSheet: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(L("Yeni klasör", "New folder")).font(.headline)
+        VStack(alignment: .leading, spacing: 16) {
+            Text(L("Yeni klasör", "New folder")).font(.system(size: 20)).foregroundStyle(NT.onSurface)
             TextField(L("Klasör adı", "Folder name"), text: $name)
                 .textFieldStyle(.roundedBorder)
                 .focused($focused)
                 .onSubmit { create() }
-            HStack {
+            HStack(spacing: 8) {
                 Spacer()
                 Button(L("İptal", "Cancel")) { m.sheet = nil }
                     .keyboardShortcut(.cancelAction)
@@ -22,8 +22,9 @@ struct FolderSheet: View {
                     .disabled(name.trimmed.isEmpty)
             }
         }
-        .padding(20)
+        .padding(24)
         .frame(width: 340)
+        .background(NT.dialog)
         .onAppear { focused = true }
     }
 

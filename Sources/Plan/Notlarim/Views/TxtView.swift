@@ -13,6 +13,7 @@ struct TxtView: View {
             if m.txtEditing {
                 TextEditor(text: $m.txtDraft)
                     .font(.system(size: m.fontSize))
+                    .foregroundStyle(NT.onSurface)
                     .scrollContentBackground(.hidden)
                     .padding(12)
                     .focused($focused)
@@ -22,19 +23,24 @@ struct TxtView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .textBackgroundColor))
-        .navigationTitle(m.txt?.title ?? "")
+        .background(NT.bg)
+        .navigationTitle("")
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
-                Button { m.txtBack() } label: { Image(systemName: "chevron.left") }
-                    .help(L("Geri", "Back"))
+                IconBtn(MI.arrowBack, help: L("Geri", "Back")) { m.txtBack() }
+                if !(m.txtSearching && !m.txtEditing) {
+                    Text(m.txt?.title ?? "")
+                        .font(.system(size: 20))
+                        .foregroundStyle(NT.onSurface)
+                        .lineLimit(1).truncationMode(.tail)
+                        .frame(maxWidth: 140, alignment: .leading)
+                }
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 if m.txtEditing {
-                    Button { m.txtSave() } label: { Image(systemName: "square.and.arrow.down") }
+                    IconBtn(MI.save, tint: NT.primary, help: L("Kaydet (⌘S)", "Save (⌘S)")) { m.txtSave() }
                         .keyboardShortcut("s", modifiers: .command)
                         .disabled(m.txtSaving)
-                        .help(L("Kaydet (⌘S)", "Save (⌘S)"))
                 } else if m.txtSearching {
                     TextField(L("Metinde ara", "Search in text"), text: $m.txtQuery)
                         .textFieldStyle(.roundedBorder)
@@ -42,25 +48,22 @@ struct TxtView: View {
                         .focused($searchFocused)
                         .onSubmit { m.txtGo(1) }
                     if !m.txtQuery.trimmed.isEmpty {
-                        Text(m.txtMatches.isEmpty ? "0" : "\(m.txtCur + 1)/\(m.txtMatches.count)").font(.caption)
+                        Text(m.txtMatches.isEmpty ? "0" : "\(m.txtCur + 1)/\(m.txtMatches.count)")
+                            .font(.system(size: 13, weight: .medium)).foregroundStyle(NT.onSurface)
                     }
-                    Button { m.txtGo(-1) } label: { Image(systemName: "chevron.up") }
-                        .disabled(m.txtMatches.isEmpty).help(L("Önceki", "Previous"))
-                    Button { m.txtGo(1) } label: { Image(systemName: "chevron.down") }
-                        .disabled(m.txtMatches.isEmpty).help(L("Sonraki", "Next"))
-                    Button { m.txtCloseSearch() } label: { Image(systemName: "xmark") }
-                        .help(L("Aramayı kapat", "Close search"))
+                    IconBtn(MI.arrowUp, help: L("Önceki", "Previous")) { m.txtGo(-1) }
+                        .disabled(m.txtMatches.isEmpty)
+                    IconBtn(MI.arrowDown, help: L("Sonraki", "Next")) { m.txtGo(1) }
+                        .disabled(m.txtMatches.isEmpty)
+                    IconBtn(MI.close, help: L("Aramayı kapat", "Close search")) { m.txtCloseSearch() }
                 } else {
-                    Button {
+                    IconBtn(MI.contentCopy, help: L("Kopyala", "Copy")) {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(m.txtSaved, forType: .string)
                         HUD.show(L("Kopyalandı", "Copied"))
-                    } label: { Image(systemName: "doc.on.doc") }
-                        .help(L("Kopyala", "Copy"))
-                    Button { m.txtSearching = true } label: { Image(systemName: "magnifyingglass") }
-                        .help(L("Ara (⌘F)", "Search (⌘F)"))
-                    Button { m.txtStartEdit() } label: { Image(systemName: "pencil") }
-                        .help(L("Düzenle (⌘E)", "Edit (⌘E)"))
+                    }
+                    IconBtn(MI.search, help: L("Ara (⌘F)", "Search (⌘F)")) { m.txtSearching = true }
+                    IconBtn(MI.edit, help: L("Düzenle (⌘E)", "Edit (⌘E)")) { m.txtStartEdit() }
                 }
             }
         }
@@ -100,10 +103,10 @@ struct ReadTextView: NSViewRepresentable {
         guard let tv = sv.documentView as? NSTextView else { return }
         let attr = NSMutableAttributedString(string: text, attributes: [
             .font: NSFont.systemFont(ofSize: CGFloat(size)),
-            .foregroundColor: NSColor.labelColor
+            .foregroundColor: NT.onSurfaceNS
         ])
         for (k, r) in matches.enumerated() where NSMaxRange(r) <= attr.length {
-            let c = k == cur ? NSColor.orange.withAlphaComponent(0.8) : NSColor.yellow.withAlphaComponent(0.33)
+            let c = k == cur ? NT.hiCur : NT.hiAll
             attr.addAttribute(.backgroundColor, value: c, range: r)
         }
         tv.textStorage?.setAttributedString(attr)

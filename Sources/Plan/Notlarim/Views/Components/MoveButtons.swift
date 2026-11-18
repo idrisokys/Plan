@@ -1,46 +1,38 @@
 import SwiftUI
 
-/// Onay (✓): düzenlemeyi bitirir (seçim kalkar; yazılıp kaydedilmemiş ad değişikliği uygulanmaz).
-struct DoneEditButton: View {
-    @EnvironmentObject var m: NotesModel
-    var body: some View {
-        Button { m.cancelRename(); m.editMode = false; m.selected = [] } label: { Image(systemName: "checkmark.circle.fill") }
-            .foregroundStyle(Color.accentColor)
-            .help(L("Tamam: düzenlemeyi bitir", "Done: finish editing"))
-    }
-}
-
 /// Düzenleme modunda seçili öğeler için: başa al, yukarı, aşağı, sona al.
 struct MoveButtons: View {
     @EnvironmentObject var m: NotesModel
 
     var body: some View {
-        HStack(spacing: 6) {
-            Button { m.moveSelected(-2) } label: { Image(systemName: "arrow.up.to.line") }
-                .disabled(!m.canMoveUp).help(L("Başa al", "Move to top"))
-            Button { m.moveSelected(-1) } label: { Image(systemName: "chevron.up") }
-                .disabled(!m.canMoveUp).help(L("Yukarı taşı", "Move up"))
-            Button { m.moveSelected(1) } label: { Image(systemName: "chevron.down") }
-                .disabled(!m.canMoveDown).help(L("Aşağı taşı", "Move down"))
-            Button { m.moveSelected(2) } label: { Image(systemName: "arrow.down.to.line") }
-                .disabled(!m.canMoveDown).help(L("Sona al", "Move to bottom"))
+        HStack(spacing: 0) {
+            IconBtn(MI.alignTop, help: L("Başa al", "Move to top")) { m.moveSelected(-2) }
+                .disabled(!m.canMoveUp)
+            IconBtn(MI.arrowUp, help: L("Yukarı taşı", "Move up")) { m.moveSelected(-1) }
+                .disabled(!m.canMoveUp)
+            IconBtn(MI.arrowDown, help: L("Aşağı taşı", "Move down")) { m.moveSelected(1) }
+                .disabled(!m.canMoveDown)
+            IconBtn(MI.alignBottom, help: L("Sona al", "Move to bottom")) { m.moveSelected(2) }
+                .disabled(!m.canMoveDown)
         }
     }
 }
 
-/// Düzenleme modunda birden çok öğe seçiliyken alt çubuk: seçili sayısı + sıra düğmeleri.
+/// Düzenleme modunda birden çok öğe seçiliyken alt çubuk: seçili sayısı + halka düğmesi + sıra düğmeleri.
 struct MultiBar: View {
     @EnvironmentObject var m: NotesModel
 
     var body: some View {
-        HStack(spacing: 10) {
-            Text("\(m.selected.count) " + L("seçili", "selected")).font(.footnote).foregroundStyle(.secondary)
+        HStack(spacing: 0) {
+            Text("\(m.selected.count) " + L("seçili", "selected"))
+                .font(.system(size: 11))
+                .foregroundStyle(NT.onSurface)
+                .padding(.leading, 8)
+            EditModeButton()
             Spacer()
-            DoneEditButton()
             MoveButtons()
         }
-        .frame(height: 30)
         .padding(8)
-        .background(.bar)
+        .background(NT.bar)
     }
 }

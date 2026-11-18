@@ -26,7 +26,7 @@ Tek uygulama, iki parça:
 Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere varsayılan olarak her zaman en üstte durur. Uygulama Dock'ta görünmez, yalnızca menü çubuğunda yaşar.
 
 - Notlar `~/Link` klasöründe; Android'deki Link klasörüyle aynı biçim. Klasörler, yeniden adlandırma, taşıma, sıralama.
-- Satırın sağındaki ⋮: Düzenle (yalnızca o satırın adını alttaki alanda düzenler) / Sabitle / Taşı / Paylaş / Sil. Alttaki artının solundaki liste simgesi çoklu seçim / sıralama modunu açar. Sağ üstteki raptiye pencerenin her zaman üstte kalmasını açar/kapatır (varsayılan: kapalı).
+- Satırın sağındaki ⋮: Düzenle / Taşı / Paylaş / Sil (birden çok seçiliyse hepsine); ⋮ basılı tutunca düzenleme modu.
 - Sil = silmez; `~/.onemsiz` gizli klasörüne taşır.
 - Araç çubuğu: en solda başlık (Notlarım), hemen sağında klasör ekle, yenile. Menü çubuğu paneli Notlarım açıkken pencereyi kapatmasın diye sola kayar.
 - Kısa not satırına tıklamak metni panoya kopyalar; satıra uzun basmak kopyalar.

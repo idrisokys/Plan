@@ -27,7 +27,8 @@ struct TxtView: View {
         .navigationTitle("")
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
-                IconBtn(MI.arrowBack, help: L("Geri", "Back")) { m.txtBack() }
+                IconBtn(MI.arrowBack, help: L("Geri", "Back"), box: ToolbarMetrics.box) { m.txtBack() }
+                PinWindowButton()
                 if !(m.txtSearching && !m.txtEditing) {
                     Text(m.txt?.title ?? "")
                         .font(.system(size: 20))

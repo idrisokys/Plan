@@ -10,8 +10,8 @@ enum NT {
         Color(.sRGB, red: Double((v >> 16) & 0xFF) / 255, green: Double((v >> 8) & 0xFF) / 255,
               blue: Double(v & 0xFF) / 255, opacity: a)
     }
-    static let bg = hex(0x141118)                 // yüzey (liste arka planı)
-    static let bar = hex(0x23202B)                // alt çubuk / üst çubuk (tonal yükseklik)
+    static let bg = hex(0x23202B)                 // yüzey: veri girişi bölümüyle aynı renk
+    static let bar = hex(0x23202B)                // alt çubuk (uygulama zemini ile aynı)
     static let dialog = hex(0x2B2930)             // diyalog yüzeyi
     static let onSurface = hex(0xE6E0E9)          // metin ve simgeler
     static let onSurfaceVariant = hex(0xCAC4D0)
@@ -20,11 +20,11 @@ enum NT {
     static let primary = hex(0xD0BCFF)
     static let secondaryContainer = hex(0x4A4458) // seçili satır
     static let error = hex(0xF2B8B5)
-    static let pinnedRed = hex(0xB71C1C)          // sabitlenmiş öğenin üç noktası
+    static let pinnedRed = hex(0xFF3B30)          // sabitlenmiş öğenin üç noktası (kırmızı)
     static let online = hex(0x66BB6A)
     static let hiAll = NSColor(srgbRed: 1, green: 0.757, blue: 0.027, alpha: 0.33)
     static let hiCur = NSColor(srgbRed: 1, green: 0.596, blue: 0, alpha: 0.8)
-    static let bgNS = NSColor(srgbRed: 0x14 / 255, green: 0x11 / 255, blue: 0x18 / 255, alpha: 1)
+    static let bgNS = NSColor(srgbRed: 0x23 / 255, green: 0x20 / 255, blue: 0x2B / 255, alpha: 1)
     static let onSurfaceNS = NSColor(srgbRed: 0xE6 / 255, green: 0xE0 / 255, blue: 0xE9 / 255, alpha: 1)
 }
 
@@ -189,17 +189,37 @@ struct IconBtn: View {
     let d: String
     var tint: Color = NT.onSurface
     var help: String = ""
+    var box: CGFloat = 34          // dokunma alanı; araç çubuğunda daha dar kullanılır
     let action: () -> Void
-    init(_ d: String, tint: Color = NT.onSurface, help: String = "", action: @escaping () -> Void) {
-        self.d = d; self.tint = tint; self.help = help; self.action = action
+    init(_ d: String, tint: Color = NT.onSurface, help: String = "", box: CGFloat = 34, action: @escaping () -> Void) {
+        self.d = d; self.tint = tint; self.help = help; self.box = box; self.action = action
     }
     var body: some View {
         Button(action: action) {
             MIcon(d).foregroundStyle(tint).opacity(enabled ? 1 : 0.38)
-                .frame(width: 34, height: 34)
+                .frame(width: box, height: 34)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(help)
     }
+}
+
+/// Sağ üstteki "her zaman üstte" raptiyesi; araç çubuğunda diğer simgelerle aynı sıraya girer.
+struct PinWindowButton: View {
+    @EnvironmentObject var m: NotesModel
+    var body: some View {
+        IconBtn(MI.pin, tint: m.alwaysOnTop ? NT.primary : NT.onSurfaceVariant.opacity(0.7),
+                help: m.alwaysOnTop
+                    ? L("Her zaman üstte: açık (kapatmak için tıkla)", "Always on top: on (click to turn off)")
+                    : L("Her zaman üstte: kapalı (açmak için tıkla)", "Always on top: off (click to turn on)"),
+                box: ToolbarMetrics.box) {
+            m.alwaysOnTop.toggle()
+        }
+    }
+}
+
+/// Araç çubuğu simgeleri arası mesafe (dar tutulur).
+enum ToolbarMetrics {
+    static let box: CGFloat = 28
 }

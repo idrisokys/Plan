@@ -16,16 +16,5 @@ struct NotesContentView: View {
         // Uygulamaya her dönüşte liste kendiliğinden yenilenir.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in m.reload() }
         .onExitCommand { m.goBack() }
-        // Sağ üst köşe: pencerenin her zaman üstte kalıp kalmayacağı
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                IconBtn(MI.pin, tint: m.alwaysOnTop ? NT.primary : NT.onSurfaceVariant.opacity(0.7),
-                        help: m.alwaysOnTop
-                            ? L("Her zaman üstte: açık (kapatmak için tıkla)", "Always on top: on (click to turn off)")
-                            : L("Her zaman üstte: kapalı (açmak için tıkla)", "Always on top: off (click to turn on)")) {
-                    m.alwaysOnTop.toggle()
-                }
-            }
-        }
     }
 }

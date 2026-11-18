@@ -103,7 +103,7 @@ final class NotesModel: ObservableObject {
     var title: String {
         if let q = searchQuery { return "“\(q)”" + (hits.map { " · \($0.count) \(L("sonuç", "results"))" } ?? "") }
         if editMode && !selected.isEmpty { return "\(selected.count) \(L("seçili", "selected"))" }
-        return stack.last?.name ?? L("Notlarım", "My Notes")
+        return ""   // "Notlarım" ve klasör adı gösterilmez
     }
 
     func io<T>(_ block: @escaping () -> T) async -> T {

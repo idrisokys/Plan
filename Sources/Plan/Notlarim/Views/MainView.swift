@@ -16,26 +16,32 @@ struct MainView: View {
         .background(NT.bg)
         .navigationTitle("")
         .toolbar {
-            ToolbarItemGroup(placement: .navigation) {
-                if m.searchQuery != nil {
-                    IconBtn(MI.arrowBack, help: L("Aramadan çık", "Exit search")) { m.exitSearch(true) }
-                } else if !m.stack.isEmpty {
-                    IconBtn(MI.arrowBack, help: L("Geri", "Back")) { m.goBack() }
-                }
-                Text(m.title)
-                    .font(.system(size: 20))
-                    .foregroundStyle(NT.onSurface)
-                    .lineLimit(1).truncationMode(.tail)
-                    .frame(maxWidth: 150, alignment: .leading)
-            }
-            ToolbarItemGroup(placement: .primaryAction) {
-                if m.searchQuery == nil {
-                    IconBtn(MI.createNewFolder, help: L("Klasör", "Folder")) { m.sheet = .folder }
-                    // U: içinde bulunulan klasör linklerin (URL) varsayılan kayıt yeri olur
-                    letterButton("U", help: L("Veri yeri U: bu klasör linklerin varsayılan kayıt yeri olur", "Data place U: make this folder the default for links")) { m.setPlaceUHere() }
-                    // D: içinde bulunulan klasör diğer kayıtların (kısa metin ve .txt) varsayılan kayıt yeri olur
-                    letterButton("D", help: L("Veri yeri D: bu klasör diğer kayıtların (not, .txt) varsayılan kayıt yeri olur", "Data place D: make this folder the default for other items (notes, .txt)")) { m.setPlaceDHere() }
-                    IconBtn(MI.refresh, help: L("Yenile (⌘R)", "Refresh (⌘R)")) { m.refresh() }
+            // Tüm simgeler tek sırada, soldan sağa; aralarında boşluk yok.
+            ToolbarItem(placement: .navigation) {
+                HStack(spacing: 0) {
+                    if m.searchQuery != nil {
+                        IconBtn(MI.arrowBack, help: L("Aramadan çık", "Exit search"), box: ToolbarMetrics.box) { m.exitSearch(true) }
+                    } else if !m.stack.isEmpty {
+                        IconBtn(MI.arrowBack, help: L("Geri", "Back"), box: ToolbarMetrics.box) { m.goBack() }
+                    }
+                    if m.searchQuery == nil {
+                        IconBtn(MI.createNewFolder, help: L("Klasör", "Folder"), box: ToolbarMetrics.box) { m.sheet = .folder }
+                        // U: içinde bulunulan klasör linklerin (URL) varsayılan kayıt yeri olur
+                        letterButton("U", help: L("Veri yeri U: bu klasör linklerin varsayılan kayıt yeri olur", "Data place U: make this folder the default for links")) { m.setPlaceUHere() }
+                        // D: içinde bulunulan klasör diğer kayıtların (kısa metin ve .txt) varsayılan kayıt yeri olur
+                        letterButton("D", help: L("Veri yeri D: bu klasör diğer kayıtların (not, .txt) varsayılan kayıt yeri olur", "Data place D: make this folder the default for other items (notes, .txt)")) { m.setPlaceDHere() }
+                        IconBtn(MI.refresh, help: L("Yenile (⌘R)", "Refresh (⌘R)"), box: ToolbarMetrics.box) { m.refresh() }
+                    }
+                    PinWindowButton()
+                    // Başlık yok; yalnızca arama sonucu ya da seçili sayısı varsa kısa bilgi gösterilir.
+                    if !m.title.isEmpty {
+                        Text(m.title)
+                            .font(.system(size: 15))
+                            .foregroundStyle(NT.onSurface)
+                            .lineLimit(1).truncationMode(.tail)
+                            .frame(maxWidth: 110, alignment: .leading)
+                            .padding(.leading, 6)
+                    }
                 }
             }
         }
@@ -60,7 +66,7 @@ struct MainView: View {
         Button(action: action) {
             Text(t).font(.system(size: 17, weight: .bold))
                 .foregroundStyle(NT.onSurface)
-                .frame(width: 34, height: 34)
+                .frame(width: ToolbarMetrics.box, height: 34)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -114,20 +120,25 @@ struct MainView: View {
                 .foregroundStyle(NT.onSurface)
                 .lineLimit(4).truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            // Üç nokta: tek tıkla menü (Sabitle / Taşı / Paylaş / Sil). Sabitlenmiş öğede koyu kırmızı.
-            Menu {
-                Button(pinLabel) { m.togglePin(targets) }
-                Button(L("Taşı", "Move")) { m.beginMove(targets) }
-                Button(L("Paylaş", "Share")) { m.shareEntries(targets) }
-                Button(L("Sil", "Delete")) { m.deleteNow(targets) }
-            } label: {
+            // Üç nokta: tek tıkla menü (Sabitle / Taşı / Paylaş / Sil). Sabitlenmiş öğede kırmızı.
+            ZStack {
+                // Simge ayrı çizilir: sabitlenmişse kırmızı, değilse normal renk (menü stili rengi bozamaz)
                 MIcon(MI.moreVert)
                     .foregroundStyle(e.pinned ? NT.pinnedRed : NT.onSurface)
-                    .frame(width: 34, height: 34)
+                    .allowsHitTesting(false)
+                Menu {
+                    Button(pinLabel) { m.togglePin(targets) }
+                    Button(L("Taşı", "Move")) { m.beginMove(targets) }
+                    Button(L("Paylaş", "Share")) { m.shareEntries(targets) }
+                    Button(L("Sil", "Delete")) { m.deleteNow(targets) }
+                } label: {
+                    Color.clear.frame(width: 34, height: 34).contentShape(Rectangle())
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
+            .frame(width: 34, height: 34)
         }
         .padding(.leading, 16)
         .padding(.trailing, 8)

@@ -25,7 +25,7 @@ jobs:
           echo "--- pwd"; pwd
           echo "--- kök"; ls -la
           echo "--- Sources"; ls -laR Sources | head -40 || true
-          echo "--- Package.swift (gizli karakterler dahil)"; cat -A Package.swift
+          echo "--- Package.swift (gizli karakterler dahil)"; cat -etv Package.swift || true
           echo "--- git'te izlenen dosyalar"; git ls-files | head -60
 
       - name: Birim testleri (Notlarım depolama katmanı)

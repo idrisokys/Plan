@@ -20,6 +20,14 @@ jobs:
       - name: Swift sürümü
         run: swift --version
 
+      - name: Dizin yapısını göster (teşhis)
+        run: |
+          echo "--- pwd"; pwd
+          echo "--- kök"; ls -la
+          echo "--- Sources"; ls -laR Sources | head -40 || true
+          echo "--- Package.swift (gizli karakterler dahil)"; cat -A Package.swift
+          echo "--- git'te izlenen dosyalar"; git ls-files | head -60
+
       - name: Birim testleri (Notlarım depolama katmanı)
         run: swift test
 

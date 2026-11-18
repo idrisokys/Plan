@@ -3,14 +3,10 @@ import AppKit
 
 /// Android'deki "Taşı" penceresi: klasör ağacında gezinip hedef seçilir.
 struct MoveSheet: View {
-    /// move: öğeleri taşır. placeD: "Veri yeri D" klasörünü seçer.
-    enum Mode { case move, placeD }
-
     @EnvironmentObject var m: NotesModel
     let root: URL
     let current: URL
     let exclude: Set<String>   // klasör kendi içine taşınamaz
-    var mode: Mode = .move
 
     @State private var stack: [Entry] = []
     @State private var folders: [Entry] = []
@@ -21,7 +17,7 @@ struct MoveSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text((mode == .move ? L("Taşı: ", "Move: ") : L("Veri yeri D: ", "Data place D: ")) + (stack.last?.name ?? L("Ana liste", "Main list")))
+            Text(L("Taşı: ", "Move: ") + (stack.last?.name ?? L("Ana liste", "Main list")))
                 .font(.system(size: 20)).foregroundStyle(NT.onSurface).lineLimit(1)
             ScrollView {
                 LazyVStack(spacing: 0) {
@@ -50,11 +46,9 @@ struct MoveSheet: View {
                 Spacer()
                 Button(L("İptal", "Cancel")) { m.sheet = nil; m.moving = [] }
                     .keyboardShortcut(.cancelAction)
-                Button(mode == .move ? L("Buraya taşı", "Move here") : L("Buraya kaydet", "Save here")) {
-                    if mode == .move { m.performMove(to: dir) } else { m.performPlaceD(to: dir) }
-                }
+                Button(L("Buraya taşı", "Move here")) { m.performMove(to: dir) }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(mode == .move && dir.path == current.path)
+                    .disabled(dir.path == current.path)
             }
         }
         .padding(24)

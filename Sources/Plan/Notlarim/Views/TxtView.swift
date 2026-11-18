@@ -28,16 +28,15 @@ struct TxtView: View {
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
                 IconBtn(MI.arrowBack, help: L("Geri", "Back")) { m.txtBack() }
-                PinButton()
                 if !(m.txtSearching && !m.txtEditing) {
                     Text(m.txt?.title ?? "")
-                        .font(.system(size: 16))
+                        .font(.system(size: 20))
                         .foregroundStyle(NT.onSurface)
                         .lineLimit(1).truncationMode(.tail)
-                        .frame(maxWidth: 120, alignment: .leading)
+                        .frame(maxWidth: 140, alignment: .leading)
                 }
             }
-            ToolbarItemGroup(placement: .navigation) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 if m.txtEditing {
                     IconBtn(MI.save, tint: NT.primary, help: L("Kaydet (⌘S)", "Save (⌘S)")) { m.txtSave() }
                         .keyboardShortcut("s", modifiers: .command)

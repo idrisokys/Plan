@@ -27,6 +27,7 @@ final class NotesModel: ObservableObject {
     @Published var hits: [Hit]? = nil
     @Published var sheet: Sheet? = nil
     @Published var moving: [Entry] = []
+    @Published var sharing: [URL] = []         // Hızlı Paylaş ile gönderilecek dosyalar
     @Published var renaming: Entry? = nil      // düzenleme modunda tek öğe seçiliyse o öğe (adı altta değiştirilir)
     @Published var renameText = ""
     /// ⋮ menüsindeki "Düzenle": yalnızca o satırın adı alttaki alanda düzenlenir; seçim modu açılmaz.

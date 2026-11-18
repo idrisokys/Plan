@@ -29,13 +29,24 @@ extension NotesModel {
         }
     }
 
-    /// "Paylaş": seçili notların kaynak dosyaları (.txt / .url) Hızlı Paylaş ile açık cihazlara gönderilir; klasörler gönderilemez.
+    /// "Paylaş": notlar metin olarak paylaşılır (.txt: içerik, link: adres, not: metin); klasörler paylaşılamaz.
     func shareEntries(_ items: [Entry]) {
-        let files = items.filter { !$0.isDir }.map { $0.url }
-        if files.isEmpty { toast(L("Klasörler paylaşılamaz", "Folders cannot be shared")); return }
-        selected = []
-        sharing = files
-        sheet = .share
+        Task {
+            let texts: [String] = await self.io { () -> [String] in
+                var out = [String]()
+                for e in items where !e.isDir {
+                    if e.isTxt { if let t = NotesStore.readPlain(e.url) { out.append(t) } }
+                    else { let (u, t) = NotesStore.readLink(e.url); out.append(u ?? t ?? e.title) }
+                }
+                return out
+            }
+            if texts.isEmpty { self.toast(L("Klasörler paylaşılamaz", "Folders cannot be shared")); return }
+            self.selected = []
+            self.editMode = false
+            guard let v = (NSApp.keyWindow ?? NSApp.mainWindow)?.contentView else { return }
+            let picker = NSSharingServicePicker(items: [texts.joined(separator: "\n\n")])
+            picker.show(relativeTo: NSRect(x: v.bounds.midX, y: v.bounds.midY, width: 1, height: 1), of: v, preferredEdge: .minY)
+        }
     }
 
     /// ⋮ → "Düzenle": yalnızca bu satırın adını alttaki alanda düzenler (seçim modu açılmaz).

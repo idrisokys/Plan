@@ -27,11 +27,11 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere vars
 
 - Notlar `~/Link` klasöründe; Android'deki Link klasörüyle aynı biçim. Klasörler, yeniden adlandırma, taşıma, sıralama.
 - Görünüm ve düğmeler Android'deki Notlarım ekranıyla aynıdır (aynı Material simgeleri, koyu tema): üst çubukta başlık ile **klasör ekle**, **U**, **D**, **yenile**; satırda soldaki simge (klasör / link / metin dosyası) ve sağdaki ⋮.
-- Satırın sağındaki ⋮: Sabitle / Taşı / Paylaş / Sil. Sabitlenen öğenin ⋮ simgesi koyu kırmızı olur. **U**: içinde bulunulan klasör linklerin varsayılan kayıt yeri olur (varsayılan: `~/Link/Url`). **D**: içinde bulunulan klasör diğer kayıtların (kısa metin ve .txt) varsayılan kayıt yeri olur (varsayılan: `~/Link`). İkisi de yalnızca kök klasörden eklerken geçerlidir; başka bir alt klasörün içindeyken kayıt orada kalır.
+- Satırın sağındaki ⋮: Düzenle / Sabitle / Taşı / Paylaş / Sil / Veri yeri U / Veri yeri D (U: seçili klasör, D: listeden klasör seçilir). Sabitlenen öğenin ⋮ simgesi koyu kırmızı olur. **U**: içinde bulunulan klasör linklerin varsayılan kayıt yeri olur (varsayılan: `~/Link/Url`). **D**: içinde bulunulan klasör diğer kayıtların (kısa metin ve .txt) varsayılan kayıt yeri olur (varsayılan: `~/Link`). İkisi de yalnızca kök klasörden eklerken geçerlidir; başka bir alt klasörün içindeyken kayıt orada kalır.
 - Alt çubuk: çerçeveli ekleme alanı (Enter: kaydet), altında sayaç, **iç içe iki halka** (düzenleme / çoklu seçim / sıralama modu), ara, temizle, yapıştır. Düzenleme modunda satıra dokunarak seç; tek satır seçiliyse adı alttaki alanda düzenlenir (Kaydet), birden çoksa başa al / yukarı / aşağı / sona al düğmeleri çıkar. Sağ üstteki raptiye pencerenin her zaman üstte kalmasını açar/kapatır (varsayılan: kapalı; yalnızca Mac penceresine özgü).
-- Paylaş: seçili notların dosyaları (.txt / .url) **Hızlı Paylaş** ile ağdaki açık cihaza gönderilir (Android'deki Paylaş penceresi); Hızlı Paylaş kapalıysa pencerede "Aç" düğmesi çıkar.
+- Paylaş: seçili notlar metin olarak sistem paylaşım menüsüyle paylaşılır.
 - Sil = silmez; `~/.onemsiz` gizli klasörüne taşır.
-- Araç çubuğu: en solda başlık (Notlarım ya da klasör adı), sağında klasör ekle, U, D, yenile. Menü çubuğu paneli Notlarım açıkken pencereyi kapatmasın diye sola kayar.
+- Araç çubuğu: en solda başlık (Notlarım ya da klasör adı), solda klasör ekle, U, D, yenile, raptiye (başlık yazısı yok). Menü çubuğu paneli Notlarım açıkken pencereyi kapatmasın diye sola kayar.
 - Kısa not satırına tıklamak metni panoya kopyalar; satıra uzun basmak kopyalar.
 - `.txt` içinde arama (⌘F), eşleşmeler işaretli, ▲▼ ile gezinme.
 - Eşitleme: Hızlı Paylaş açıkken cihaz listesinin üstündeki ⇄ simgesi; açılan pencerede cihazlar işaretlenir ve "Bu cihaza göre / Karşıdaki cihaza göre / İki cihazda aynı olsun" seçilir. `~/Link` içeriği (Android'deki `<ana dizin>/Link` ile) eşitlenir; silinenler Çöp Kutusu'na gider.

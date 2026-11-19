@@ -16,8 +16,7 @@ Tek uygulama, iki parça:
 - Satırın üstüne gelince: Paylaş, Kopyala, Çöpe at. Linke tıkla = tarayıcıda açılır.
 - Herhangi bir uygulamada metin seç → Hizmetler → **"Notlarıma Kaydet"** (ilk seferde Sistem Ayarları > Klavye >
   Klavye Kısayolları > Hizmetler'den açman gerekebilir). Link ise sayfa başlığı otomatik alınır.
-- Hızlı Paylaş (Android'deki aynı protokol): soldaki anten düğmesi = ağdan dosya almayı aç/kapat (açıkken açık kırmızı "ON"),
-  basılı tut = alınan dosyaların klasörü. Paylaşım ekranındaki "Alındı" satırına tıklayınca dosyanın kaydedildiği klasör açılır. Paylaşım açıkken altta açık cihazlar listelenir; klasör simgesiyle dosya gönderirsin.
+- Hızlı Paylaş (Android'deki aynı protokol): soldaki anten düğmesi = ağdan dosya almayı aç/kapat (açıkken açık kırmızı "ON"). Paylaşım ekranındaki "Alındı" satırına tıklayınca dosyanın kaydedildiği klasör açılır. Paylaşım açıkken altta açık cihazlar listelenir; klasör simgesiyle dosya gönderirsin.
 
 - Menü çubuğu simgesine sağ tık: **Notlarım**, **Kayıt yeri** (paylaşımla gelen dosyaların klasörünü seç), **Notlarım klasörü** (~/Link'i Finder'da aç), Çık.
 
@@ -42,7 +41,9 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere vars
 
 ## Resim düzenleyici
 
-Alt çubukta **✕**'in solundaki resim simgesi bir resim seçtirir ve düzenleyiciyi açar
+Üst çubukta **✕**'in solundaki resim simgesine tıklayınca tam üstünde bir satır açılır: **Resim çek**, **Video çek**, **Düzenle**.
+Çekilen resim ve videolar **İndirilenler** klasörüne kaydedilir (`Plan_tarih_saat.jpg / .mov`; ilk kullanımda kamera ve mikrofon izni sorulur).
+**Düzenle** İndirilenler klasöründe bir seçici açar; seçilen resim düzenleyicide açılır (video varsayılan oynatıcıda)
 (Android'deki Temel Düzenleyici'nin macOS karşılığı; kod `Sources/Plan/ImageEditor/`).
 
 - **Filtre**: Siyah-Beyaz, Noir, Sepya, Klasik, Solgun, Chrome, Soğuk, Sıcak, Kontrast, Canlı, Parlak, Keskin, Vinyet, Negatif.

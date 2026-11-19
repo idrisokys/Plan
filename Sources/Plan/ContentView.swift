@@ -61,6 +61,7 @@ struct ContentView: View {
     @State private var newURL = ""
     @State private var syncOpen = false          // ⇄ simgesinin penceresi
     @State private var syncPicked = Set<String>()
+    @State private var mediaRowOpen = false      // resim simgesinin üstündeki satır
     @FocusState private var focused: Bool
 
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -72,6 +73,7 @@ struct ContentView: View {
             if !trimmed.isEmpty { searchResults }
             if qs.running { devicesList }
             if !status.isEmpty { Text(status).font(.footnote).foregroundStyle(dim) }
+            if mediaRowOpen { mediaRow }
             bar
         }
         .padding(12)
@@ -90,12 +92,11 @@ struct ContentView: View {
     // MARK: Üst çubuk
     private var bar: some View {
         HStack(spacing: 8) {
-            // Hızlı Paylaş: dokun = aç/kapat. Açıkken ikon açık kırmızı "ON" olur. Basılı tut = alınan dosyalar klasörü.
+            // Hızlı Paylaş: dokun = aç/kapat. Açıkken ikon açık kırmızı "ON" olur. (Basılı tutarak klasör açma kaldırıldı.)
             shareButton
                 .contentShape(Circle())
                 .onTapGesture { qs.toggle() }
-                .onLongPressGesture { NSWorkspace.shared.open(QuickShare.receiveDir) }
-                .help("Hızlı Paylaş: dokun aç/kapat, basılı tut klasörü aç")
+                .help("Hızlı Paylaş: dokun aç/kapat")
 
             TextField("", text: $text, prompt: Text("Ara; Enter ile ekle").foregroundColor(dim))
                 .textFieldStyle(.plain).font(.system(size: 16)).foregroundStyle(.white)
@@ -106,13 +107,33 @@ struct ContentView: View {
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
             Button { NotesWindow.toggle() } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help("Notlarım (aç/kapat)")
-            // Resim düzenleyici: resim seçtirir, filtre / kırp / döndür / çiz düzenleyicisini açar (✕'in solunda)
-            Button { ImageEditorWindow.openPicker() } label: { circle("photo.on.rectangle.angled") }
-                .buttonStyle(.plain).help(L("Resim düzenleyici", "Image editor"))
+            // Resim simgesi: tam üstünde resim çek / video çek / düzenle satırını açar ve kapatır (✕'in solunda)
+            Button { withAnimation(.easeOut(duration: 0.15)) { mediaRowOpen.toggle() } } label: {
+                circle("photo.on.rectangle.angled")
+                    .overlay(Circle().stroke(Color.white.opacity(mediaRowOpen ? 0.8 : 0), lineWidth: 1.5))
+            }
+            .buttonStyle(.plain).help(L("Resim / video", "Photo / video"))
             // Kapat: uygulamayı tamamen kapatır
             Button { NSApp.terminate(nil) } label: { circle("xmark") }
                 .buttonStyle(.plain).help("Uygulamayı kapat")
         }
+    }
+
+    // MARK: Resim simgesinin tam üstündeki satır: [Resim çek] [Video çek] [Düzenle]
+    // Sağ kenar, çubuktaki resim simgesinin hizasında (✕ düğmesi 36 + boşluk 8 = 44).
+    private var mediaRow: some View {
+        HStack(spacing: 8) {
+            Spacer(minLength: 0)
+            Button { CameraWindow.open(.photo) } label: { circle("camera") }
+                .buttonStyle(.plain).help(L("Resim çek (İndirilenler'e kaydedilir)", "Take photo (saved to Downloads)"))
+            Button { CameraWindow.open(.video) } label: { circle("video") }
+                .buttonStyle(.plain).help(L("Video çek (İndirilenler'e kaydedilir)", "Record video (saved to Downloads)"))
+            // Düzenle: İndirilenler klasörü açılır; çekilen resim ve videolar orada
+            Button { ImageEditorWindow.openPicker(startingAt: MediaDir.downloads) } label: { circle("slider.horizontal.3") }
+                .buttonStyle(.plain).help(L("Düzenle (İndirilenler klasörü açılır)", "Edit (opens Downloads folder)"))
+        }
+        .padding(.trailing, 44)
+        .transition(.opacity)
     }
 
     @ViewBuilder private var shareButton: some View {

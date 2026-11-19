@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Filetor
 
 // Koyu zemin, yarı saydam siyah yuvarlak düğmeler.
 // Üst çubuk: [Paylaş] [arama kutusu] [Kalem → Notlarım] [Gizle]
@@ -11,6 +12,12 @@ private let dim = Color.white.opacity(0.67)
 
 private func circle(_ system: String, size: CGFloat = 36) -> some View {
     Image(systemName: system).font(.system(size: 15, weight: .medium)).foregroundStyle(.white)
+        .frame(width: size, height: size)
+        .background(Circle().fill(idleBG))
+}
+
+private func circleView<C: View>(size: CGFloat = 36, @ViewBuilder _ content: () -> C) -> some View {
+    content()
         .frame(width: size, height: size)
         .background(Circle().fill(idleBG))
 }
@@ -61,7 +68,7 @@ struct ContentView: View {
     @State private var newURL = ""
     @State private var syncOpen = false          // ⇄ simgesinin penceresi
     @State private var syncPicked = Set<String>()
-    @State private var mediaRowOpen = false      // resim simgesinin üstündeki satır
+    @State private var menuOpen = false          // menü simgesinin üstündeki satır
     @FocusState private var focused: Bool
 
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -73,7 +80,7 @@ struct ContentView: View {
             if !trimmed.isEmpty { searchResults }
             if qs.running { devicesList }
             if !status.isEmpty { Text(status).font(.footnote).foregroundStyle(dim) }
-            if mediaRowOpen { mediaRow }
+            if menuOpen { menuRow }
             bar
         }
         .padding(12)
@@ -107,23 +114,23 @@ struct ContentView: View {
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
             Button { NotesWindow.toggle() } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help("Notlarım (aç/kapat)")
-            // Resim simgesi: tam üstünde resim çek / video çek / düzenle satırını açar ve kapatır (✕'in solunda)
-            Button { withAnimation(.easeOut(duration: 0.15)) { mediaRowOpen.toggle() } } label: {
-                circle("photo.on.rectangle.angled")
-                    .overlay(Circle().stroke(Color.white.opacity(mediaRowOpen ? 0.8 : 0), lineWidth: 1.5))
+            // Üç çizgili menü: tam üstünde Kapat / Resim çek / Video çek / Düzenle / Dosya yöneticisi satırını açar ve kapatır
+            Button { withAnimation(.easeOut(duration: 0.15)) { menuOpen.toggle() } } label: {
+                circleView { MenuLinesIcon() }
+                    .overlay(Circle().stroke(Color.white.opacity(menuOpen ? 0.8 : 0), lineWidth: 1.5))
             }
-            .buttonStyle(.plain).help(L("Resim / video", "Photo / video"))
-            // Kapat: uygulamayı tamamen kapatır
-            Button { NSApp.terminate(nil) } label: { circle("xmark") }
-                .buttonStyle(.plain).help("Uygulamayı kapat")
+            .buttonStyle(.plain).help(L("Menü", "Menu"))
         }
     }
 
-    // MARK: Resim simgesinin tam üstündeki satır: [Resim çek] [Video çek] [Düzenle]
-    // Sağ kenar, çubuktaki resim simgesinin hizasında (✕ düğmesi 36 + boşluk 8 = 44).
-    private var mediaRow: some View {
+    // MARK: Menü simgesinin tam üstündeki satır: [Kapat] [Resim çek] [Video çek] [Düzenle] [Dosya yöneticisi]
+    // Sağ kenar, çubuktaki menü simgesinin hizasında.
+    private var menuRow: some View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
+            // Kapat: uygulamayı tamamen kapatır
+            Button { NSApp.terminate(nil) } label: { circle("xmark") }
+                .buttonStyle(.plain).help(L("Uygulamayı kapat", "Quit app"))
             Button { CameraWindow.open(.photo) } label: { circle("camera") }
                 .buttonStyle(.plain).help(L("Resim çek (İndirilenler'e kaydedilir)", "Take photo (saved to Downloads)"))
             Button { CameraWindow.open(.video) } label: { circle("video") }
@@ -131,8 +138,10 @@ struct ContentView: View {
             // Düzenle: İndirilenler klasörü açılır; çekilen resim ve videolar orada
             Button { ImageEditorWindow.openPicker(startingAt: MediaDir.downloads) } label: { circle("slider.horizontal.3") }
                 .buttonStyle(.plain).help(L("Düzenle (İndirilenler klasörü açılır)", "Edit (opens Downloads folder)"))
+            // Dosya yöneticisi: Plan'ın parçası (Filetor), kendi penceresinde açılır
+            Button { FiletorWindow.show() } label: { circleView { FileManagerIcon() } }
+                .buttonStyle(.plain).help(L("Dosya yöneticisi", "File manager"))
         }
-        .padding(.trailing, 44)
         .transition(.opacity)
     }
 

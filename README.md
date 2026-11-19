@@ -8,7 +8,7 @@ Tek uygulama, iki parça:
 
 ## Menü çubuğu paneli
 
-- Üst çubuk: [Paylaş] [arama kutusu] [Kalem] [Kapat]. Kalem = **Notlarım penceresini** açar; Kapat (✕) = uygulamayı tamamen kapatır.
+- Üst çubuk: [Paylaş] [arama kutusu] [Kalem] [Menü ☰]. Kalem = **Notlarım penceresini** açar; Menü (☰) = üstünde Kapat, Resim çek, Video çek, Düzenle ve Dosya yöneticisi satırını açar; Kapat (✕) uygulamayı tamamen kapatır.
   Yazınca en çok 3 not + (sorgu · + · eklenen motorlar) satırı çıkar.
 - Arama motoru ekle: Arama satırındaki + → ad ve adres (`%s` aranan kelimenin yerine geçer) yaz, Ekle. Yeni motor ilk harfiyle
   en sağda görünür (sağ tık → Sil).
@@ -41,7 +41,7 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere vars
 
 ## Resim düzenleyici
 
-Üst çubukta **✕**'in solundaki resim simgesine tıklayınca tam üstünde bir satır açılır: **Resim çek**, **Video çek**, **Düzenle**.
+Üst çubuktaki **üç çizgili menü** simgesine tıklayınca tam üstünde bir satır açılır: **Kapat** (uygulamayı kapatır), **Resim çek**, **Video çek**, **Düzenle**, **Dosya yöneticisi**.
 Çekilen resim ve videolar **İndirilenler** klasörüne kaydedilir (`Plan_tarih_saat.jpg / .mov`; ilk kullanımda kamera ve mikrofon izni sorulur).
 **Düzenle** İndirilenler klasöründe bir seçici açar; seçilen resim düzenleyicide açılır (video varsayılan oynatıcıda)
 (Android'deki Temel Düzenleyici'nin macOS karşılığı; kod `Sources/Plan/ImageEditor/`).
@@ -51,6 +51,16 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere vars
 - **Çiz**: renk, fırça boyutu, geri al (⌘Z tüm adımları geri alır).
 - Kaydet menüsü: **Farklı kaydet…** (png / jpg / heic / tiff) ya da **Üzerine yaz** (onay sorar). Panoya kopyala düğmesi de var.
 
+
+## Dosya yöneticisi (Filetor)
+
+Menü satırındaki **klasör + dikey çizgi** simgesi dosya yöneticisini ayrı bir pencerede açar. Kod `Sources/Filetor/` içinde,
+Plan'ın kitaplık hedefi olarak derlenir (David Praznik'in MIT lisanslı Filetor projesi, lisans: `Sources/Filetor/LICENSE-Filetor`).
+Çift panel, sekmeler, ağ sürücüleri, arşivleme, toplu yeniden adlandırma, kopyalama / taşıma / eşitleme. Arayüz İngilizcedir.
+Kısayollar pencere içinde çalışır (⌘T yeni sekme, ⌘W sekmeyi kapat, ⌘K eylemler, F5 / F6 diğer panele kopyala / taşı).
+Uygulama içindeki Filetor ayarları (görünüm, vurgu rengi) yalnızca bu pencereyi etkiler. GitHub güncelleme denetimi kaldırıldı.
+
+**Sistem gereksinimi:** Filetor `@Observable` kullandığı için Plan artık **macOS 14.6+** ister; derleme için Swift 6.2 (Xcode 26+).
 
 ## Klasör yapısı
 
@@ -68,6 +78,9 @@ Sources/Plan/
 ├── FloatingBar.swift    # Arama çubuğunu sağ alt köşeye sabitleyen yüzen panel; menü çubuğu simgesi göster/gizle
 ├── QuickShare.swift     # Hızlı Paylaş
 ├── ImageEditor/         # Resim düzenleyici (model, arayüz, pencere)
+├── Camera/              # Resim çek / video çek (İndirilenler'e kaydeder)
+├── MenuIcons.swift      # Üç çizgili menü ve dosya yöneticisi simgeleri
+(Sources/Filetor/        # Dosya yöneticisi kitaplığı; giriş: FiletorWindow.swift)
 └── Notlarim/            # Notlarım kodu (Models, Store, Services, ViewModel, Views, Support)
 Tests/PlanTests/      # Notlarım depolama katmanı testleri
 ```

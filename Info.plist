@@ -11,7 +11,7 @@
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>CFBundleShortVersionString</key><string>1.0</string>
-<key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>LSMinimumSystemVersion</key><string>14.6</string>
 <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
 <key>LSUIElement</key><true/>
 <key>NSPrincipalClass</key><string>NSApplication</string>
@@ -21,6 +21,10 @@
 <key>NSCameraUsageDescription</key><string>Resim ve video çekip İndirilenler klasörüne kaydetmek için gerekli.</string>
 <key>NSMicrophoneUsageDescription</key><string>Video çekerken sesi kaydetmek için gerekli.</string>
 <key>NSDownloadsFolderUsageDescription</key><string>Çekilen resim ve videoları İndirilenler klasörüne kaydetmek ve düzenlemek için gerekli.</string>
+<key>NSDesktopFolderUsageDescription</key><string>Dosya yöneticisinde Masaüstü klasörünün dosyalarını göstermek ve yönetmek için gerekli.</string>
+<key>NSDocumentsFolderUsageDescription</key><string>Dosya yöneticisinde Belgeler klasörünün dosyalarını göstermek ve yönetmek için gerekli.</string>
+<key>NSRemovableVolumesUsageDescription</key><string>Dosya yöneticisinde çıkarılabilir diskleri göstermek ve yönetmek için gerekli.</string>
+<key>NSNetworkVolumesUsageDescription</key><string>Dosya yöneticisinde ağ sürücülerini göstermek ve yönetmek için gerekli.</string>
 <key>NSContactsUsageDescription</key><string>Arama çubuğunda yazdığın isme uyan kişileri Rehber'den göstermek için gerekli.</string>
 <key>NSLocalNetworkUsageDescription</key><string>Aynı ağdaki telefon ve TV ile dosya almak, göndermek ve notları eşitlemek için gerekli.</string>
 <key>NSBonjourServices</key><array><string>_qshare._tcp</string></array>

@@ -136,7 +136,7 @@ struct FileTableView: NSViewRepresentable {
 
     // MARK: Coordinator
 
-    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, NSTextFieldDelegate, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, NSTextFieldDelegate {
         var parent: FileTableView
         weak var table: NSTableView?
         var items: [FileItem] = []
@@ -331,20 +331,6 @@ struct FileTableView: NSViewRepresentable {
             }
         }
 
-        // MARK: Quick Look (space bar)
-
-        private var previewURLs: [URL] {
-            guard let table else { return [] }
-            return table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil }
-        }
-
-        func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { previewURLs.count }
-
-        func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
-            let urls = previewURLs
-            return index < urls.count ? urls[index] as NSURL : nil
-        }
-
         /// Lets files be dragged out of the list (favorites, Finder, other apps).
         func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
             guard row < items.count else { return nil }
@@ -455,9 +441,6 @@ struct FileTableView: NSViewRepresentable {
             guard !syncing, let table else { return }
             let urls = Set(table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil })
             parent.pane.selection = urls
-            if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
-                QLPreviewPanel.shared().reloadData()
-            }
         }
 
         /// The column the list is sorted by keeps full contrast, the others are dimmed.
@@ -608,15 +591,6 @@ struct FileTableView: NSViewRepresentable {
                 menu.addItem(.separator())
                 menu.addItem(item("Rotate Left") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 270) })
                 menu.addItem(item("Rotate Right") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 90) })
-                let conv = NSMenuItem(title: "Convert Image", action: nil, keyEquivalent: "")
-                let sub = NSMenu()
-                var formats = [("PNG", "png", "png"), ("JPEG", "jpeg", "jpg"), ("HEIC", "heic", "heic"), ("TIFF", "tiff", "tiff")]
-                if FileTools.canWriteWebP { formats.append(("WebP", "webp", "webp")) }
-                for (title, fmt, ext) in formats {
-                    sub.addItem(item(title) { [weak self] in self?.parent.app.convertImages(urls, format: fmt, ext: ext) })
-                }
-                conv.submenu = sub
-                menu.addItem(conv)
                 menu.addItem(item("Optimize…") { [weak self] in self?.parent.app.optimizeImages(urls) })
                 menu.addItem(item("Strip Metadata") { [weak self] in self?.parent.app.stripMetadata(urls) })
             }
@@ -629,7 +603,7 @@ struct FileTableView: NSViewRepresentable {
             menu.addItem(item("Get Info") { [weak self] in self?.parent.app.getInfo(urls) })
             let shareItems = urls.sorted { $0.path < $1.path }
             let shareMenu = NSMenu()
-            for name in [NSSharingService.Name.sendViaAirDrop, .composeEmail, .composeMessage] {
+            for name in [NSSharingService.Name.composeEmail, .composeMessage] {
                 guard let service = NSSharingService(named: name), service.canPerform(withItems: shareItems) else { continue }
                 let mi = item(service.menuItemTitle) { service.perform(withItems: shareItems) }
                 let img = service.image.copy() as? NSImage
@@ -643,14 +617,6 @@ struct FileTableView: NSViewRepresentable {
                 menu.addItem(shareItem)
             }
             menu.addItem(item("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting(Array(urls)) })
-            menu.addItem(item("Open in Terminal") { [weak self] in
-                guard let first = urls.sorted(by: { $0.path < $1.path }).first else { return }
-                let isDir = self?.items.first { $0.url == first }?.isDirectory ?? false
-                let folder = isDir ? first : first.deletingLastPathComponent()
-                NSWorkspace.shared.open([folder],
-                                        withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
-                                        configuration: NSWorkspace.OpenConfiguration())
-            })
             menu.addItem(.separator())
             let folders = urls.filter { u in items.first { $0.url == u }?.isDirectory ?? false }
             if !folders.isEmpty {
@@ -735,7 +701,7 @@ struct FileTableView: NSViewRepresentable {
 }
 
 
-/// Table that handles the space bar as Quick Look, like Finder.
+/// Table with its own keyboard handling (copy, paste, delete, rename).
 final class QLTableView: NSTableView {
     weak var qlSource: FileTableView.Coordinator?
     /// Called on every mouse press in the list, so the pane becomes active with one click.
@@ -792,28 +758,9 @@ final class QLTableView: NSTableView {
             qlSource?.renameSelection()
             return
         }
-        if event.charactersIgnoringModifiers == " ", event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
-            if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
-                QLPreviewPanel.shared().orderOut(nil)
-            } else if selectedRow >= 0 {
-                QLPreviewPanel.shared().makeKeyAndOrderFront(nil)
-            }
-            return
-        }
         super.keyDown(with: event)
     }
 
-    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { true }
-
-    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
-        panel.dataSource = qlSource
-        panel.delegate = qlSource
-    }
-
-    override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
-        panel.dataSource = nil
-        panel.delegate = nil
-    }
 }
 
 

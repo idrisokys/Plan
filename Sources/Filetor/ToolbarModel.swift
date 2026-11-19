@@ -37,8 +37,6 @@ enum ToolCatalog {
                 isOn: { $0.dual }, run: { $0.dual.toggle() }),
         ToolDef(id: "swap", title: "Swap Panes", symbol: "arrow.left.arrow.right", needsDual: true,
                 run: { $0.swapPanes() }),
-        ToolDef(id: "quickLook", title: "Quick Look", symbol: "eye", needsSelection: true,
-                run: { $0.quickLook($0.active.selection) }),
         ToolDef(id: "hidden", title: "Hidden Files", symbol: "eye.slash",
                 isOn: { $0.active.showHidden }, run: { $0.active.toggleHidden() }),
         ToolDef(id: "newFolder", title: "New Folder", symbol: "folder.badge.plus",
@@ -65,26 +63,16 @@ enum ToolCatalog {
                 run: { $0.compress($0.active.selection) }),
         ToolDef(id: "decompress", title: "Decompress", symbol: "arrow.up.left.and.arrow.down.right", needsSelection: true,
                 run: { $0.decompress($0.active.selection) }),
-        ToolDef(id: "convert", title: "Convert", symbol: "arrow.triangle.2.circlepath", needsSelection: true,
-                run: { let images = $0.active.selection.filter { FileTools.isImage($0) }; $0.convertURLs = images.isEmpty ? nil : images }),
         ToolDef(id: "optimize", title: "Optimize", symbol: "photo", needsSelection: true,
                 run: { $0.optimizeImages($0.active.selection) }),
         ToolDef(id: "stripMeta", title: "Strip Metadata", symbol: "eraser", needsSelection: true,
                 run: { $0.stripMetadata($0.active.selection) }),
-        ToolDef(id: "touch", title: "Touch", symbol: "clock", needsSelection: true,
-                run: { $0.touch($0.active.selection) }),
         ToolDef(id: "copyPath", title: "Copy Path", symbol: "link",
                 run: { $0.copyPath() }),
-        ToolDef(id: "terminal", title: "Terminal", symbol: "apple.terminal",
-                run: { $0.openTerminal() }),
         ToolDef(id: "reload", title: "Reload", symbol: "arrow.clockwise",
                 run: { $0.active.load() }),
-        ToolDef(id: "airdrop", title: "AirDrop", symbol: "airplayaudio", needsSelection: true,
-                run: { $0.airDrop($0.active.selection) }),
         ToolDef(id: "info", title: "Info Panel", symbol: "info.circle",
                 isOn: { $0.showInfo }, run: { $0.showInfo.toggle() }),
-        ToolDef(id: "connect", title: "Connect", symbol: "globe",
-                run: { $0.showConnect = true }),
         ToolDef(id: "customize", title: "Settings", symbol: "gearshape",
                 run: { $0.showSettings = true }),
     ]
@@ -97,15 +85,15 @@ enum ToolCatalog {
     /// Order of the palette in the Customize sheet.
     static let palette: [String] = [
         "sidebar", "backfwd", "enclosing", "dual", "swap",
-        "quickLook", "hidden", "newFolder", "projectFolder", "newFile", "newTab",
+        "hidden", "newFolder", "projectFolder", "newFile", "newTab",
         "open", "rename", "duplicate", "copy", "move", "trash", "compress",
-        "decompress", "convert", "optimize", "stripMeta", "touch", "copyPath", "terminal", "reload",
-        "airdrop", "connect", "info", "customize", "search", "space",
+        "decompress", "optimize", "stripMeta", "copyPath", "reload",
+        "info", "customize", "search", "space",
     ]
 
     static let defaultKinds: [String] = [
-        "sidebar", "backfwd", "airdrop", "terminal", "touch", "customize", "reload",
-        "newFolder", "copyPath", "connect", "swap", "dual", "search",
+        "sidebar", "backfwd", "customize", "reload",
+        "newFolder", "copyPath", "swap", "dual", "search",
     ]
 }
 
@@ -121,7 +109,9 @@ final class ToolbarModel {
         if let data = UserDefaults.standard.data(forKey: Self.key),
            let decoded = try? JSONDecoder().decode([ToolbarEntry].self, from: data) {
             // Folder name, view switcher and flexible space are gone: every icon sits left to right.
-            entries = decoded.filter { !["folderSize", "title", "view", "flex"].contains($0.kind) }
+            // Removed features (convert, terminal, airdrop, quick look, connect, touch) are dropped from saved toolbars too.
+            entries = decoded.filter { !["folderSize", "title", "view", "flex",
+                                         "convert", "terminal", "airdrop", "quickLook", "connect", "touch"].contains($0.kind) }
         } else {
             entries = ToolCatalog.defaultKinds.map { ToolbarEntry(kind: $0) }
         }

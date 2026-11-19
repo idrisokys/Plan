@@ -18,9 +18,8 @@
 <key>NSHighResolutionCapable</key><true/>
 <!-- Notlarım: sayfa başlığını almak için; yönlendirmeyle http'ye düşen adreslere de izin verir -->
 <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
-<key>NSCameraUsageDescription</key><string>Resim ve video çekip İndirilenler klasörüne kaydetmek için gerekli.</string>
-<key>NSMicrophoneUsageDescription</key><string>Video çekerken sesi kaydetmek için gerekli.</string>
-<key>NSDownloadsFolderUsageDescription</key><string>Çekilen resim ve videoları İndirilenler klasörüne kaydetmek ve düzenlemek için gerekli.</string>
+<key>NSCameraUsageDescription</key><string>Resim çekip İndirilenler klasörüne kaydetmek için gerekli.</string>
+<key>NSDownloadsFolderUsageDescription</key><string>Çekilen resimleri İndirilenler klasörüne kaydetmek ve düzenlemek için gerekli.</string>
 <key>NSDesktopFolderUsageDescription</key><string>Dosya yöneticisinde Masaüstü klasörünün dosyalarını göstermek ve yönetmek için gerekli.</string>
 <key>NSDocumentsFolderUsageDescription</key><string>Dosya yöneticisinde Belgeler klasörünün dosyalarını göstermek ve yönetmek için gerekli.</string>
 <key>NSRemovableVolumesUsageDescription</key><string>Dosya yöneticisinde çıkarılabilir diskleri göstermek ve yönetmek için gerekli.</string>

@@ -354,7 +354,7 @@ struct CustomizeSheet: View {
                 .foregroundStyle(.secondary)
 
             WrapGrid(cellWidth: cellWidth(s), rowSpacing: 14 * s) {
-                ForEach(ToolCatalog.palette, id: \.self) { kind in
+                ForEach(ToolCatalog.palette.filter { $0 == "space" || $0 == "flex" || !model.contains($0) }, id: \.self) { kind in
                     paletteCell(kind, s)
                 }
             }
@@ -482,9 +482,7 @@ struct CustomizeSheet: View {
     }
 
     private func paletteCell(_ kind: String, _ s: CGFloat) -> some View {
-        let present = model.contains(kind) && kind != "space" && kind != "flex"
-        return cell(kind, s)
-            .opacity(present ? 0.35 : 1)
+        cell(kind, s)
             .onTapGesture { model.toggle(kind) }
             .draggable("new:" + kind)
     }

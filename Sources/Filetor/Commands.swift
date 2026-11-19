@@ -720,51 +720,6 @@ struct OptimizeSheet: View {
     }
 }
 
-// MARK: - Convert dialog
-
-struct ConvertSheet: View {
-    let app: AppModel
-    let urls: Set<URL>
-    @Environment(\.closePanel) private var dismiss
-    @AppStorage("textSize") private var textSize = 1
-    @AppStorage("convertFormat") private var format = 0
-
-    private var s: CGFloat { UIScale.value(textSize) }
-    private let formats: [(name: String, fmt: String, ext: String)] = {
-        var list = [("PNG", "png", "png"), ("JPEG", "jpeg", "jpg"), ("HEIC", "heic", "heic"), ("TIFF", "tiff", "tiff")]
-        if FileTools.canWriteWebP { list.append(("WebP", "webp", "webp")) }
-        return list
-    }()
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16 * s) {
-            Text(urls.count == 1 ? "Convert Image" : "Convert \(urls.count) Images").font(.system(size: 22 * s))
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Format").foregroundStyle(.secondary)
-                SegmentedChoice(options: formats.map(\.name), selection: $format, scale: s, accent: true)
-                Text("Saved next to each original. The originals stay untouched.")
-                    .font(.system(size: 12 * s)).foregroundStyle(.secondary)
-            }
-            HStack(spacing: 12) {
-                Spacer()
-                Button("Cancel") { dismiss() }
-                    .buttonStyle(PathsButtonStyle(scale: s))
-                    .keyboardShortcut(.cancelAction)
-                Button("Convert") {
-                    let f = formats[min(max(format, 0), formats.count - 1)]
-                    app.convertImages(urls, format: f.fmt, ext: f.ext)
-                    dismiss()
-                }
-                .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
-                .keyboardShortcut(.defaultAction)
-            }
-        }
-        .font(.system(size: 13 * s))
-        .padding(28)
-        .frame(width: 400 * s)
-    }
-}
-
 // MARK: - New project folder from a template
 
 struct ProjectFolder: Codable, Identifiable, Equatable {

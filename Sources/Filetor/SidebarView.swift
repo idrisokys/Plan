@@ -306,18 +306,6 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 2 * s) {
             sectionHeader("Shared")
             if !isCollapsed("Shared") {
-            HStack(spacing: 8 * s) {
-                Image(systemName: "plus")
-                    .font(.system(size: 12.5 * s))
-                    .foregroundStyle(Color.filetor)
-                    .frame(width: 20 * s)
-                Text("Connect to Server").font(.system(size: 13 * s))
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5 * s)
-            .contentShape(Rectangle())
-            .onTapGesture { app.showConnect = true }
             ForEach(app.network.servers) { server in
                 HStack(spacing: 8 * s) {
                     Image(systemName: "desktopcomputer")

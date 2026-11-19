@@ -114,7 +114,7 @@ struct ContentView: View {
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
             Button { NotesWindow.toggle() } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help("Notlarım (aç/kapat)")
-            // Üç çizgili menü: tam üstünde Kapat / Resim çek / Video çek / Düzenle / Dosya yöneticisi satırını açar ve kapatır
+            // Üç çizgili menü: tam üstünde Kapat / Resim çek / Düzenle / Dosya yöneticisi satırını açar ve kapatır
             Button { withAnimation(.easeOut(duration: 0.15)) { menuOpen.toggle() } } label: {
                 circleView { MenuLinesIcon() }
                     .overlay(Circle().stroke(Color.white.opacity(menuOpen ? 0.8 : 0), lineWidth: 1.5))
@@ -123,7 +123,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Menü simgesinin tam üstündeki satır: [Kapat] [Resim çek] [Video çek] [Düzenle] [Dosya yöneticisi]
+    // MARK: Menü simgesinin tam üstündeki satır: [Kapat] [Resim çek] [Düzenle] [Dosya yöneticisi]
     // Sağ kenar, çubuktaki menü simgesinin hizasında.
     private var menuRow: some View {
         HStack(spacing: 8) {
@@ -131,11 +131,9 @@ struct ContentView: View {
             // Kapat: uygulamayı tamamen kapatır
             Button { NSApp.terminate(nil) } label: { circle("xmark") }
                 .buttonStyle(.plain).help(L("Uygulamayı kapat", "Quit app"))
-            Button { CameraWindow.open(.photo) } label: { circle("camera") }
+            Button { CameraWindow.open() } label: { circle("camera") }
                 .buttonStyle(.plain).help(L("Resim çek (İndirilenler'e kaydedilir)", "Take photo (saved to Downloads)"))
-            Button { CameraWindow.open(.video) } label: { circle("video") }
-                .buttonStyle(.plain).help(L("Video çek (İndirilenler'e kaydedilir)", "Record video (saved to Downloads)"))
-            // Düzenle: İndirilenler klasörü açılır; çekilen resim ve videolar orada
+            // Düzenle: İndirilenler klasörü açılır; çekilen resimler orada
             Button { ImageEditorWindow.openPicker(startingAt: MediaDir.downloads) } label: { circle("slider.horizontal.3") }
                 .buttonStyle(.plain).help(L("Düzenle (İndirilenler klasörü açılır)", "Edit (opens Downloads folder)"))
             // Dosya yöneticisi: Plan'ın parçası (Filetor), kendi penceresinde açılır

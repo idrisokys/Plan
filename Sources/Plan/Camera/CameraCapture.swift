@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import AVFoundation
 
-/// Çekilen resim ve videoların kaydedildiği klasör: İndirilenler (Downloads).
+/// Çekilen resimlerin kaydedildiği klasör: İndirilenler (Downloads).
 enum MediaDir {
     static var downloads: URL {
         FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
@@ -24,16 +24,37 @@ enum MediaDir {
     }
 }
 
-/// Resim çek / video çek penceresi. Çekilenler İndirilenler klasörüne kaydedilir.
+/// Boşluk (Space) tuşunu yakalayan kamera penceresi.
+@MainActor
+private final class CameraNSWindow: NSWindow {
+    var onSpace: (() -> Void)?
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, event.keyCode == 49, !event.isARepeat,
+           event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
+            onSpace?()
+            return
+        }
+        super.sendEvent(event)
+    }
+}
+
+/// Çekilen resim: dosya ve küçük önizleme.
+struct Shot: Identifiable {
+    let id = UUID()
+    let url: URL
+    let thumb: NSImage
+}
+
+/// Resim çek penceresi. Çekilenler İndirilenler klasörüne kaydedilir.
 @MainActor
 enum CameraWindow {
-    enum Mode { case photo, video }
     private static var controller: Controller?
 
-    static func open(_ mode: Mode) {
+    static func open() {
         controller?.window.close()
         NSApp.activate(ignoringOtherApps: true)
-        let c = Controller(mode: mode)
+        let c = Controller()
         controller = c
         c.model.start()
         c.window.makeKeyAndOrderFront(nil)
@@ -46,24 +67,24 @@ enum CameraWindow {
     @MainActor
     fileprivate final class Controller: NSObject, NSWindowDelegate {
         let model: CameraModel
-        let window: NSWindow
+        let window: CameraNSWindow
 
-        init(mode: Mode) {
-            model = CameraModel(mode: mode)
+        override init() {
+            model = CameraModel()
             let host = NSHostingView(rootView: CameraView(model: model))
-            window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 480),
+            window = CameraNSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 560),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
                               backing: .buffered, defer: false)
             super.init()
-            window.title = mode == .photo ? L("Resim çek", "Take photo") : L("Video çek", "Record video")
+            window.title = L("Resim çek", "Take photo")
             window.contentView = host
-            window.minSize = NSSize(width: 360, height: 300)
+            window.minSize = NSSize(width: 360, height: 380)
             window.isReleasedWhenClosed = false
             window.appearance = NSAppearance(named: .darkAqua)
             window.backgroundColor = .black
-            window.level = .floating
             window.center()
             window.delegate = self
+            window.onSpace = { [weak self] in self?.model.takePhoto() }
         }
 
         func windowWillClose(_ notification: Notification) {
@@ -74,23 +95,12 @@ enum CameraWindow {
 }
 
 @MainActor
-final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate, AVCaptureFileOutputRecordingDelegate {
-    let mode: CameraWindow.Mode
+final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     let session = AVCaptureSession()
     private let photoOut = AVCapturePhotoOutput()
-    private let movieOut = AVCaptureMovieFileOutput()
     private let queue = DispatchQueue(label: "plan.camera.session")
-    private var timer: Timer?
-    private var closing = false
-
-    @Published var isRecording = false
-    @Published var seconds = 0
     @Published var error: String?
-
-    init(mode: CameraWindow.Mode) {
-        self.mode = mode
-        super.init()
-    }
+    @Published var shots: [Shot] = []
 
     // MARK: Başlat
     func start() {
@@ -101,20 +111,14 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
                                    "Camera access denied. Allow Plan in System Settings > Privacy & Security > Camera.")
                     return
                 }
-                if self.mode == .video {
-                    AVCaptureDevice.requestAccess(for: .audio) { _ in
-                        Task { @MainActor in self.configure() }
-                    }
-                } else {
-                    self.configure()
-                }
+                self.configure()
             }
         }
     }
 
     private func configure() {
         session.beginConfiguration()
-        session.sessionPreset = mode == .photo ? .photo : .high
+        session.sessionPreset = .photo
 
         guard let cam = AVCaptureDevice.default(for: .video),
               let input = try? AVCaptureDeviceInput(device: cam),
@@ -125,20 +129,7 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
         }
         session.addInput(input)
 
-        // Video: mikrofon izni varsa sesli kaydet, yoksa sessiz devam et
-        if mode == .video,
-           AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
-           let mic = AVCaptureDevice.default(for: .audio),
-           let micInput = try? AVCaptureDeviceInput(device: mic),
-           session.canAddInput(micInput) {
-            session.addInput(micInput)
-        }
-
-        if mode == .photo {
-            if session.canAddOutput(photoOut) { session.addOutput(photoOut) }
-        } else {
-            if session.canAddOutput(movieOut) { session.addOutput(movieOut) }
-        }
+        if session.canAddOutput(photoOut) { session.addOutput(photoOut) }
         session.commitConfiguration()
 
         let s = session
@@ -165,59 +156,17 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
         let url = MediaDir.newURL(prefix: "Plan", ext: "jpg")
         do {
             try data.write(to: url)
-            let name = url.lastPathComponent
-            Task { @MainActor in HUD.show(L("İndirilenler'e kaydedildi: ", "Saved to Downloads: ") + name) }
+            Task { @MainActor in
+                if let img = NSImage(data: data) { self.shots.append(Shot(url: url, thumb: img)) }
+            }
         } catch {
             Task { @MainActor in HUD.show(L("Kaydedilemedi", "Could not save")) }
         }
     }
 
-    // MARK: Video
-    func toggleRecording() {
-        if isRecording {
-            movieOut.stopRecording()
-        } else {
-            guard session.isRunning, !movieOut.isRecording else { return }
-            let url = MediaDir.newURL(prefix: "Plan", ext: "mov")
-            movieOut.startRecording(to: url, recordingDelegate: self)
-            isRecording = true
-            seconds = 0
-            timer?.invalidate()
-            timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-                Task { @MainActor in self?.seconds += 1 }
-            }
-        }
-    }
-
-    nonisolated func fileOutput(_ output: AVCaptureFileOutput,
-                                didFinishRecordingTo outputFileURL: URL,
-                                from connections: [AVCaptureConnection],
-                                error: Error?) {
-        // Hata olsa bile kayıt başarıyla bitmiş olabilir (ör. disk dolmadan durdurma)
-        var ok = error == nil
-        if let e = error as NSError?,
-           let finished = e.userInfo[AVErrorRecordingSuccessfullyFinishedKey] as? Bool {
-            ok = finished
-        }
-        let name = outputFileURL.lastPathComponent
-        Task { @MainActor in
-            self.timer?.invalidate()
-            self.timer = nil
-            self.isRecording = false
-            HUD.show(ok ? L("İndirilenler'e kaydedildi: ", "Saved to Downloads: ") + name
-                        : L("Video kaydedilemedi", "Could not save video"))
-            if self.closing { self.stopSession() }
-        }
-    }
-
     // MARK: Kapat
     func shutdown() {
-        closing = true
-        if isRecording {
-            movieOut.stopRecording()      // bitince delegate oturumu kapatır
-        } else {
-            stopSession()
-        }
+        stopSession()
     }
 
     private func stopSession() {
@@ -259,47 +208,52 @@ struct CameraView: View {
     @ObservedObject var model: CameraModel
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Color.black
-            CameraPreview(session: model.session)
-            if let e = model.error {
-                Text(e)
-                    .font(.system(size: 14)).foregroundStyle(.white)
-                    .multilineTextAlignment(.center).padding(24)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            controls
-        }
-    }
-
-    private var controls: some View {
-        VStack(spacing: 6) {
-            if model.isRecording {
-                Text(String(format: "%02d:%02d", model.seconds / 60, model.seconds % 60))
-                    .font(.system(size: 14, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10).padding(.vertical, 4)
-                    .background(Capsule().fill(Color.red.opacity(0.85)))
-            }
-            Button {
-                if model.mode == .photo { model.takePhoto() } else { model.toggleRecording() }
-            } label: {
-                ZStack {
-                    Circle().stroke(Color.white, lineWidth: 3).frame(width: 64, height: 64)
-                    if model.mode == .photo {
-                        Circle().fill(Color.white).frame(width: 52, height: 52)
-                    } else if model.isRecording {
-                        RoundedRectangle(cornerRadius: 6).fill(Color.red).frame(width: 28, height: 28)
-                    } else {
-                        Circle().fill(Color.red).frame(width: 52, height: 52)
-                    }
+        VStack(spacing: 0) {
+            ZStack {
+                Color.black
+                CameraPreview(session: model.session)
+                if let e = model.error {
+                    Text(e)
+                        .font(.system(size: 14)).foregroundStyle(.white)
+                        .multilineTextAlignment(.center).padding(24)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .buttonStyle(.plain)
-            .disabled(model.error != nil)
-            .help(model.mode == .photo ? L("Resim çek", "Take photo")
-                  : (model.isRecording ? L("Kaydı durdur", "Stop recording") : L("Kaydı başlat", "Start recording")))
+            strip
         }
-        .padding(.bottom, 16)
+        .background(Color.black)
+    }
+
+    /// Photo Booth gibi alttaki önizleme şeridi: küçük resme tıklayınca resim düzenleyicide açılır.
+    private var strip: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    if model.shots.isEmpty {
+                        Text(L("Resim çekmek için Boşluk (Space) tuşuna bas", "Press Space to take a photo"))
+                            .font(.system(size: 13)).foregroundStyle(.white.opacity(0.55))
+                            .frame(maxWidth: .infinity)
+                    }
+                    ForEach(model.shots) { shot in
+                        Image(nsImage: shot.thumb)
+                            .resizable().scaledToFill()
+                            .frame(width: 80, height: 60)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.white.opacity(0.25), lineWidth: 1))
+                            .contentShape(Rectangle())
+                            .onTapGesture { ImageEditorWindow.open(shot.url) }
+                            .help(L("Düzenlemek için tıkla", "Click to edit"))
+                            .id(shot.id)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 80)
+            }
+            .onChange(of: model.shots.count) { _, _ in
+                if let last = model.shots.last { withAnimation { proxy.scrollTo(last.id) } }
+            }
+        }
+        .frame(height: 80)
+        .background(Color(white: 0.08))
     }
 }

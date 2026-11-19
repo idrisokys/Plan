@@ -62,7 +62,6 @@ final class AppModel {
         else { showFilterBar = true; filterBarFocus += 1 }
     }
     var showPalette = false
-    var showConnect = false
     let favorites = FavoritesStore()
     let network = NetworkBrowser()
     /// Files being renamed together in the batch rename dialog.
@@ -85,8 +84,6 @@ final class AppModel {
     var savedSearchDialog: SavedSearch?
     /// Folder being archived; nil when the dialog is closed.
     var archiveFolder: URL?
-    /// Images in the Convert dialog.
-    var convertURLs: Set<URL>?
     /// Result of Find Duplicates or Compare Folders.
     var report: Report?
     var sync: SyncSession?
@@ -221,34 +218,6 @@ final class AppModel {
         transfers.start(items: items, move: false)
     }
 
-    func quickLook(_ urls: Set<URL>) {
-        guard !urls.isEmpty else { return }
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/qlmanage")
-        p.arguments = ["-p"] + urls.map(\.path).sorted()
-        p.standardOutput = FileHandle.nullDevice
-        p.standardError = FileHandle.nullDevice
-        try? p.run()
-    }
-
-    func touch(_ urls: Set<URL>) {
-        for url in urls {
-            try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
-        }
-        refresh()
-    }
-
-    func openTerminal() {
-        NSWorkspace.shared.open([active.currentURL],
-                                withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
-                                configuration: NSWorkspace.OpenConfiguration())
-    }
-
-    func airDrop(_ urls: Set<URL>) {
-        guard !urls.isEmpty else { return }
-        NSSharingService(named: .sendViaAirDrop)?.perform(withItems: Array(urls))
-    }
-
     func compress(_ urls: Set<URL>) {
         let dir = active.currentURL
         let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
@@ -293,15 +262,6 @@ final class AppModel {
         let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
         Task {
             let err = await Task.detached { FileTools.stripMetadata(list) }.value
-            refresh()
-            if let err { alert = err }
-        }
-    }
-
-    func convertImages(_ urls: Set<URL>, format: String, ext: String) {
-        let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
-        Task {
-            let err = await Task.detached { FileTools.convert(list, format: format, ext: ext) }.value
             refresh()
             if let err { alert = err }
         }

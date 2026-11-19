@@ -12,14 +12,14 @@ enum ImageEditorWindow {
     static var hasWindows: Bool { !controllers.isEmpty }
 
     /// Resim seç → düzenleyiciyi aç.
-    /// `startingAt` verilirse seçici o klasörde açılır (ör. İndirilenler). Resim → düzenleyici, video → varsayılan oynatıcı.
+    /// `startingAt` verilirse seçici o klasörde açılır (ör. İndirilenler).
     static func openPicker(startingAt dir: URL? = nil) {
         NSApp.activate(ignoringOtherApps: true)
         let p = NSOpenPanel()
         p.canChooseFiles = true
         p.canChooseDirectories = false
         p.allowsMultipleSelection = true
-        p.allowedContentTypes = dir == nil ? [.image] : [.image, .movie]
+        p.allowedContentTypes = [.image]
         if let dir { p.directoryURL = dir }
         p.prompt = L("Aç", "Open")
         p.message = L("Düzenlenecek resmi seç", "Choose an image to edit")

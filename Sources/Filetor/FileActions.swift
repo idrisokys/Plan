@@ -98,41 +98,6 @@ nonisolated enum FileTools {
         return errors.isEmpty ? nil : errors.joined(separator: "\n")
     }
 
-    static let webPType = "org.webmproject.webp"
-
-    /// True when the libwebp package is linked, or this macOS can write WebP through ImageIO.
-    static var canWriteWebP: Bool {
-        #if canImport(libwebp)
-        return true
-        #else
-        return (CGImageDestinationCopyTypeIdentifiers() as? [String])?.contains(webPType) == true
-        #endif
-    }
-
-    private static func writeWebP(_ url: URL, to dest: URL) -> String? {
-        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return "Could not read the image." }
-        #if canImport(libwebp)
-        let opts: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 1 << 16,
-        ]
-        guard let image = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary),
-              let data = encodeWebP(image, quality: 85) else { return "Could not encode WebP." }
-        do { try data.write(to: dest); return nil } catch { return error.localizedDescription }
-        #else
-        guard let image = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return "Could not read the image." }
-        guard let out = CGImageDestinationCreateWithURL(dest as CFURL, webPType as CFString, 1, nil) else {
-            return "This macOS cannot write WebP."
-        }
-        let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any]
-        var options: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: 0.85]
-        if let o = props?[kCGImagePropertyOrientation] { options[kCGImagePropertyOrientation] = o }
-        CGImageDestinationAddImage(out, image, options as CFDictionary)
-        return CGImageDestinationFinalize(out) ? nil : "Could not write the image."
-        #endif
-    }
-
     #if canImport(libwebp)
     private static func encodeWebP(_ image: CGImage, quality: Float) -> Data? {
         let w = image.width, h = image.height
@@ -166,23 +131,6 @@ nonisolated enum FileTools {
         return data
     }
     #endif
-
-    /// Writes a converted copy next to each image and leaves the original untouched.
-    static func convert(_ urls: [URL], format: String, ext: String) -> String? {
-        let images = urls.filter(isImage)
-        if images.isEmpty { return "Select one or more image files." }
-        var errors: [String] = []
-        for url in images {
-            let dest = unique(url.deletingLastPathComponent()
-                .appending(path: url.deletingPathExtension().lastPathComponent + "." + ext))
-            if format == "webp" {
-                if let err = writeWebP(url, to: dest) { errors.append("\(url.lastPathComponent): \(err)") }
-            } else if let err = run("/usr/bin/sips", ["-s", "format", format, url.path, "--out", dest.path]) {
-                errors.append("\(url.lastPathComponent): \(err)")
-            }
-        }
-        return errors.isEmpty ? nil : errors.joined(separator: "\n")
-    }
 
     /// Writes a copy without EXIF, GPS, IPTC and XMP next to each image ("name-clean"). The original stays untouched.
     /// The orientation is kept, otherwise a rotated photo would show sideways.

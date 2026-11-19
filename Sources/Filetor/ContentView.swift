@@ -128,9 +128,6 @@ struct ContentView: View {
             app.network.start()
         }
         .modifier(ToolPanels(app: app))
-        .floatingPanel(isPresented: $model.showConnect) {
-            ConnectSheet(app: app)
-        }
         .floatingPanel(isPresented: $model.showSettings) {
             SettingsSheet(app: app)
         }
@@ -381,9 +378,6 @@ private struct ToolPanels: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-        .floatingPanel(isPresented: Binding(get: { app.convertURLs != nil }, set: { if !$0 { app.convertURLs = nil } })) {
-            if let urls = app.convertURLs { ConvertSheet(app: app, urls: urls) }
-        }
         .floatingPanel(isPresented: Binding(get: { app.projectDialog }, set: { app.projectDialog = $0 })) {
             ProjectFolderSheet(app: app)
         }

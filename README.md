@@ -8,7 +8,7 @@ Tek uygulama, iki parça:
 
 ## Menü çubuğu paneli
 
-- Üst çubuk: [Paylaş] [arama kutusu] [Kalem] [Menü ☰]. Kalem = **Notlarım penceresini** açar; Menü (☰) = üstünde Kapat, Resim çek, Video çek, Düzenle ve Dosya yöneticisi satırını açar; Kapat (✕) uygulamayı tamamen kapatır.
+- Üst çubuk: [Paylaş] [arama kutusu] [Kalem] [Menü ☰]. Kalem = **Notlarım penceresini** açar; Menü (☰) = üstünde Kapat, Resim çek, Düzenle ve Dosya yöneticisi satırını açar; Kapat (✕) uygulamayı tamamen kapatır.
   Yazınca en çok 3 not + (sorgu · + · eklenen motorlar) satırı çıkar.
 - Arama motoru ekle: Arama satırındaki + → ad ve adres (`%s` aranan kelimenin yerine geçer) yaz, Ekle. Yeni motor ilk harfiyle
   en sağda görünür (sağ tık → Sil).
@@ -41,9 +41,9 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere vars
 
 ## Resim düzenleyici
 
-Üst çubuktaki **üç çizgili menü** simgesine tıklayınca tam üstünde bir satır açılır: **Kapat** (uygulamayı kapatır), **Resim çek**, **Video çek**, **Düzenle**, **Dosya yöneticisi**.
-Çekilen resim ve videolar **İndirilenler** klasörüne kaydedilir (`Plan_tarih_saat.jpg / .mov`; ilk kullanımda kamera ve mikrofon izni sorulur).
-**Düzenle** İndirilenler klasöründe bir seçici açar; seçilen resim düzenleyicide açılır (video varsayılan oynatıcıda)
+Üst çubuktaki **üç çizgili menü** simgesine tıklayınca tam üstünde bir satır açılır: **Kapat** (uygulamayı kapatır), **Resim çek**, **Düzenle**, **Dosya yöneticisi**.
+Resim çekme penceresinde **Boşluk (Space)** tuşu resim çeker; alttaki önizleme şeridinde çekilenler görünür ve birine tıklayınca resim düzenleyicide açılır. Çekilen resimler **İndirilenler** klasörüne kaydedilir (`Plan_tarih_saat.jpg`; ilk kullanımda kamera izni sorulur).
+**Düzenle** İndirilenler klasöründe bir seçici açar; seçilen resim düzenleyicide açılır
 (Android'deki Temel Düzenleyici'nin macOS karşılığı; kod `Sources/Plan/ImageEditor/`).
 
 - **Filtre**: Siyah-Beyaz, Noir, Sepya, Klasik, Solgun, Chrome, Soğuk, Sıcak, Kontrast, Canlı, Parlak, Keskin, Vinyet, Negatif.
@@ -78,7 +78,7 @@ Sources/Plan/
 ├── FloatingBar.swift    # Arama çubuğunu sağ alt köşeye sabitleyen yüzen panel; menü çubuğu simgesi göster/gizle
 ├── QuickShare.swift     # Hızlı Paylaş
 ├── ImageEditor/         # Resim düzenleyici (model, arayüz, pencere)
-├── Camera/              # Resim çek / video çek (İndirilenler'e kaydeder)
+├── Camera/              # Resim çek (İndirilenler'e kaydeder)
 ├── MenuIcons.swift      # Üç çizgili menü ve dosya yöneticisi simgeleri
 (Sources/Filetor/        # Dosya yöneticisi kitaplığı; giriş: FiletorWindow.swift)
 └── Notlarim/            # Notlarım kodu (Models, Store, Services, ViewModel, Views, Support)

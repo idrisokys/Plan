@@ -78,11 +78,6 @@ struct BreadcrumbBar: View {
         }
         Button("Get Info") { app.getInfo([url]) }
         Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-        Button("Open in Terminal") {
-            NSWorkspace.shared.open([url],
-                                    withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
-                                    configuration: NSWorkspace.OpenConfiguration())
-        }
         Divider()
         if app.favorites.contains(url) {
             Button("Remove from Favorites") { app.favorites.remove(url) }

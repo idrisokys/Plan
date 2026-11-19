@@ -372,15 +372,12 @@ private struct AppAlerts: ViewModifier {
     }
 }
 
-/// Dialogs for image tools, batch rename and project folders, kept out of ContentView.body for the same reason.
+/// Dialogs for image tools, batch rename and saved searches, kept out of ContentView.body for the same reason.
 private struct ToolPanels: ViewModifier {
     let app: AppModel
 
     func body(content: Content) -> some View {
         content
-        .floatingPanel(isPresented: Binding(get: { app.projectDialog }, set: { app.projectDialog = $0 })) {
-            ProjectFolderSheet(app: app)
-        }
         .floatingPanel(isPresented: Binding(get: { app.savedSearchDialog != nil }, set: { if !$0 { app.savedSearchDialog = nil } })) {
             if let search = app.savedSearchDialog { SavedSearchSheet(app: app, initial: search) }
         }

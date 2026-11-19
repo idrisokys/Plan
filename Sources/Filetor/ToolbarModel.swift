@@ -23,8 +23,6 @@ enum ToolCatalog {
         "title": ("Title", "textformat"),
         "search": ("Search", "magnifyingglass"),
         "view": ("View", "list.bullet"),
-        "space": ("Space", "rectangle.dashed"),
-        "flex": ("Flexible Space", "arrow.left.and.right"),
     ]
 
     static let buttons: [ToolDef] = [
@@ -41,8 +39,6 @@ enum ToolCatalog {
                 isOn: { $0.active.showHidden }, run: { $0.active.toggleHidden() }),
         ToolDef(id: "newFolder", title: "New Folder", symbol: "folder.badge.plus",
                 run: { $0.newFolder() }),
-        ToolDef(id: "projectFolder", title: "New Project Folder", symbol: "folder.badge.gearshape",
-                run: { $0.projectDialog = true }),
         ToolDef(id: "newFile", title: "New File", symbol: "doc.badge.plus",
                 run: { $0.newFile() }),
         ToolDef(id: "newTab", title: "New Tab", symbol: "plus",
@@ -85,10 +81,10 @@ enum ToolCatalog {
     /// Order of the palette in the Customize sheet.
     static let palette: [String] = [
         "sidebar", "backfwd", "enclosing", "dual", "swap",
-        "hidden", "newFolder", "projectFolder", "newFile", "newTab",
+        "hidden", "newFolder", "newFile", "newTab",
         "open", "rename", "duplicate", "copy", "move", "trash", "compress",
         "decompress", "optimize", "stripMeta", "copyPath", "reload",
-        "info", "customize", "search", "space",
+        "info", "customize", "search",
     ]
 
     static let defaultKinds: [String] = [
@@ -108,9 +104,9 @@ final class ToolbarModel {
     init() {
         if let data = UserDefaults.standard.data(forKey: Self.key),
            let decoded = try? JSONDecoder().decode([ToolbarEntry].self, from: data) {
-            // Folder name, view switcher and flexible space are gone: every icon sits left to right.
-            // Removed features (convert, terminal, airdrop, quick look, connect, touch) are dropped from saved toolbars too.
-            entries = decoded.filter { !["folderSize", "title", "view", "flex",
+            // Removed items (folder name, view switcher, spaces, project folder, convert, terminal, airdrop,
+            // quick look, connect, touch) are dropped from saved toolbars too.
+            entries = decoded.filter { !["folderSize", "title", "view", "flex", "space", "projectFolder",
                                          "convert", "terminal", "airdrop", "quickLook", "connect", "touch"].contains($0.kind) }
         } else {
             entries = ToolCatalog.defaultKinds.map { ToolbarEntry(kind: $0) }
@@ -134,9 +130,7 @@ final class ToolbarModel {
     func contains(_ kind: String) -> Bool { entries.contains { $0.kind == kind } }
 
     func toggle(_ kind: String) {
-        if kind == "space" || kind == "flex" {
-            entries.append(ToolbarEntry(kind: kind))
-        } else if let i = entries.firstIndex(where: { $0.kind == kind }) {
+        if let i = entries.firstIndex(where: { $0.kind == kind }) {
             entries.remove(at: i)
         } else {
             entries.append(ToolbarEntry(kind: kind))
@@ -148,7 +142,7 @@ final class ToolbarModel {
         var entry: ToolbarEntry
         if payload.hasPrefix("new:") {
             let kind = String(payload.dropFirst(4))
-            if kind != "space" && kind != "flex" && contains(kind) { return }
+            if contains(kind) { return }
             entry = ToolbarEntry(kind: kind)
         } else if payload.hasPrefix("move:"),
                   let id = UUID(uuidString: String(payload.dropFirst(5))),

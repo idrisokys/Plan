@@ -17,7 +17,6 @@ struct AppCommand: Identifiable {
 
     static let all: [AppCommand] = [
         AppCommand(id: "newFolder", title: "New Folder", keys: "⇧ ⌘ N") { $0.newFolder() },
-        AppCommand(id: "projectFolder", title: "New Project Folder…") { $0.projectDialog = true },
         AppCommand(id: "archiveProject", title: "Archive Project…") { app in
             let selected = app.active.selection
             if selected.count == 1, let folder = selected.first,

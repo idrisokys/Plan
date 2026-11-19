@@ -22,7 +22,6 @@ enum Shortcuts {
         ]),
         ShortcutGroup(title: "Files", entries: [
             ("New Folder", "⇧ ⌘ N"),
-            ("New Project Folder", "—"),
             ("Rename", "F2"),
             ("Rename (selected file)", "Return"),
             ("Duplicate", "⌘ D"),

@@ -63,8 +63,6 @@ struct CustomToolbar: View {
         case "title": return 190 * s
         case "search": return 170 * s
         case "view": return 110 * s
-        case "space": return 12 * s
-        case "flex": return 0
         default: return buttonWidth
         }
     }
@@ -89,7 +87,7 @@ struct CustomToolbar: View {
             let base = geo.size.width - 28 - transfersWidth
             let first = split(available: base)
             let parts = first.hidden.isEmpty ? first : split(available: base - 40 * s)
-            let hiddenButtons = parts.hidden.filter { $0.kind != "flex" && $0.kind != "space" && $0.kind != "title" && $0.kind != "search" && $0.kind != "view" }
+            let hiddenButtons = parts.hidden.filter { $0.kind != "title" && $0.kind != "search" && $0.kind != "view" }
 
             HStack(alignment: .center, spacing: spacing) {
                 if model.entries.isEmpty {
@@ -156,10 +154,6 @@ struct CustomToolbar: View {
     @ViewBuilder
     private func entryView(_ entry: ToolbarEntry) -> some View {
         switch entry.kind {
-        case "flex":
-            Spacer(minLength: 0)
-        case "space":
-            Spacer().frame(width: 18 * s)
         case "backfwd":
             VStack(spacing: 3) {
                 HStack(spacing: 0) {
@@ -354,7 +348,7 @@ struct CustomizeSheet: View {
                 .foregroundStyle(.secondary)
 
             WrapGrid(cellWidth: cellWidth(s), rowSpacing: 14 * s) {
-                ForEach(ToolCatalog.palette.filter { $0 == "space" || $0 == "flex" || !model.contains($0) }, id: \.self) { kind in
+                ForEach(ToolCatalog.palette.filter { !model.contains($0) }, id: \.self) { kind in
                     paletteCell(kind, s)
                 }
             }
@@ -440,15 +434,6 @@ struct CustomizeSheet: View {
                     .overlay(Circle().strokeBorder(line))
                     .frame(width: h, height: h)
                 Image(systemName: "folder").font(.system(size: 14 * s))
-            case "flex":
-                RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .controlBackgroundColor))
-                    .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(line))
-                    .frame(width: 50 * s, height: h * 0.75)
-                Rectangle().fill(Color.primary.opacity(0.45)).frame(width: 30 * s, height: 1)
-            case "space":
-                RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .controlBackgroundColor))
-                    .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(line))
-                    .frame(width: 30 * s, height: 30 * s)
             case "search":
                 Capsule().fill(Color.primary.opacity(0.07)).frame(width: 60 * s, height: h * 0.7)
                 HStack {

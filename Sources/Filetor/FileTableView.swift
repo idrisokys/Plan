@@ -552,7 +552,6 @@ struct FileTableView: NSViewRepresentable {
             }
             if row < 0 {
                 menu.addItem(item("New Folder") { [weak self] in self?.parent.app.newFolder() })
-                menu.addItem(item("New Project Folder…") { [weak self] in self?.parent.app.projectDialog = true })
                 return
             }
             let urls = Set(table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil })

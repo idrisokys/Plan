@@ -78,8 +78,6 @@ final class AppModel {
     var pendingDelete: [URL]?
     /// Images in the Optimize dialog.
     var optimizeURLs: [URL]?
-    /// New Project Folder dialog.
-    var projectDialog = false
     /// Saved search being created or edited; nil when the dialog is closed.
     var savedSearchDialog: SavedSearch?
     /// Folder being archived; nil when the dialog is closed.

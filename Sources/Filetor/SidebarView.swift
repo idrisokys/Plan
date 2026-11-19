@@ -88,27 +88,17 @@ struct SidebarView: View {
                 section("Cloud", cloud)
                     .onDrop(of: [.text], delegate: sectionDelegate("Cloud"))
             }
-        case "Tags":
-            tagsSection
-                .onDrop(of: [.text], delegate: sectionDelegate("Tags"))
         default:
-            section("Favorites", favorites, isFavorites: true)
-                .onDrop(of: [.text, .fileURL], delegate: sectionDelegate("Favorites", urls: true))
+            // Searches always stay directly below Favorites, so they move together with it.
+            VStack(alignment: .leading, spacing: 14 * s) {
+                section("Favorites", favorites, isFavorites: true)
+                    .onDrop(of: [.text, .fileURL], delegate: sectionDelegate("Favorites", urls: true))
+                searchesSection
+            }
         }
     }
 
     @State private var tick = 0
-
-    private var devices: [Place] {
-        _ = tick
-        let keys: [URLResourceKey] = [.volumeNameKey, .volumeIsInternalKey]
-        let vols = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? []
-        return vols.map { url in
-            let v = try? url.resourceValues(forKeys: Set(keys))
-            let name = url.path == "/" ? FileManager.default.displayName(atPath: "/") : (v?.volumeName ?? url.lastPathComponent)
-            return Place(name: name, icon: (v?.volumeIsInternal ?? true) ? "internaldrive" : "externaldrive", url: url)
-        }
-    }
 
     /// iCloud Drive and cloud providers (Google Drive, Dropbox, OneDrive) that exist on this Mac.
     private var cloud: [Place] {
@@ -157,170 +147,70 @@ struct SidebarView: View {
         }
     }
 
-    private func section(_ title: String, _ places: [Place], ejectable: Bool = false, isFavorites: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 2 * s) {
+    /// One sidebar row: icon, name, highlight when selected. Callers add tap and menu behaviour.
+    private func row(icon: String, title: String, selected: Bool, vertical: CGFloat = 5) -> some View {
+        HStack(spacing: 8 * s) {
+            Image(systemName: icon)
+                .font(.system(size: 12.5 * s))
+                .foregroundStyle(Color.filetor)
+                .frame(width: 20 * s)
+            Text(title)
+                .font(.system(size: 13 * s))
+                .foregroundStyle(Color.primary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, vertical * s)
+        .background(RoundedRectangle(cornerRadius: 7).fill(selected ? Color.primary.opacity(0.09) : Color.clear))
+        .contentShape(Rectangle())
+    }
+
+    private func section(_ title: String, _ places: [Place], isFavorites: Bool = false) -> some View {
+        let pane = app.active
+        let current = pane.currentURL.standardizedFileURL.path
+        let browsingFolders = pane.tagFilter == nil
+        return VStack(alignment: .leading, spacing: 2 * s) {
             sectionHeader(title)
             ForEach(isCollapsed(title) ? [] : places) { p in
-                let pane = app.active
-                let on = pane.tagFilter == nil
-                    && pane.currentURL.standardizedFileURL.path == p.url.standardizedFileURL.path
-                HStack(spacing: 8 * s) {
-                    Image(systemName: p.icon)
-                        .font(.system(size: 12.5 * s))
-                        .foregroundStyle(Color.filetor)
-                        .frame(width: 20 * s)
-                    Text(p.name)
-                        .font(.system(size: 13 * s))
-                        .foregroundStyle(Color.primary)
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                    if ejectable && p.url.path != "/" {
-                        Button { app.eject(p.url) } label: {
-                            Image(systemName: "eject.fill")
-                                .font(.system(size: 10 * s))
-                                .foregroundStyle(Color.primary.opacity(0.5))
-                        }
-                        .buttonStyle(.plain)
-                        .help("Eject")
-                    }
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, (isFavorites ? 9 : 5) * s)
-                .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.primary.opacity(0.09) : Color.clear))
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    app.active.navigate(to: p.url)
-                }
-                .modifier(FavoriteRowModifier(enabled: isFavorites, url: p.url, app: app, dragging: $draggingFavorite,
-                                              card: dragCard(p.name), onDragStart: watchDragEnd))
+                row(icon: p.icon, title: p.name,
+                    selected: browsingFolders && current == p.url.standardizedFileURL.path,
+                    vertical: isFavorites ? 9 : 5)
+                    .onTapGesture { pane.navigate(to: p.url) }
+                    .modifier(FavoriteRowModifier(enabled: isFavorites, url: p.url, app: app, dragging: $draggingFavorite,
+                                                  card: dragCard(p.name), onDragStart: watchDragEnd))
             }
         }
     }
 
-    private func tagCircle(_ color: NSColor?) -> some View {
-        Group {
-            if let color {
-                Circle().fill(Color(nsColor: color))
-            } else {
-                Circle().strokeBorder(Color.primary.opacity(0.45), lineWidth: 1.4)
-            }
-        }
-        .frame(width: 10.5 * s, height: 10.5 * s)
-    }
-
+    /// Saved searches, shown under Favorites.
     private var searchesSection: some View {
         let store = SavedSearchStore.shared
+        let pane = app.active
         return VStack(alignment: .leading, spacing: 2 * s) {
             sectionHeader("Searches")
             if !isCollapsed("Searches") {
-                HStack(spacing: 8 * s) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 12.5 * s))
-                        .foregroundStyle(Color.filetor)
-                        .frame(width: 20 * s)
-                    Text("New Saved Search…").font(.system(size: 13 * s))
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5 * s)
-                .contentShape(Rectangle())
-                .onTapGesture { app.savedSearchDialog = SavedSearch(folder: app.active.currentURL.path) }
+                row(icon: "plus", title: "New Saved Search…", selected: false)
+                    .onTapGesture { app.savedSearchDialog = SavedSearch(folder: pane.currentURL.path) }
                 ForEach(store.items) { search in
-                    let on = app.active.savedSearchID == search.id
-                    HStack(spacing: 8 * s) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 12.5 * s))
-                            .foregroundStyle(Color.filetor)
-                            .frame(width: 20 * s)
-                        Text(search.name)
-                            .font(.system(size: 13 * s))
-                            .foregroundStyle(Color.primary)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5 * s)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.primary.opacity(0.09) : Color.clear))
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if on {
-                            app.active.clearTag()
-                            app.active.load()
-                        } else {
-                            app.active.showSaved(search)
+                    let on = pane.savedSearchID == search.id
+                    row(icon: "magnifyingglass", title: search.name, selected: on)
+                        .onTapGesture {
+                            if on {
+                                pane.clearTag()
+                                pane.load()
+                            } else {
+                                pane.showSaved(search)
+                            }
                         }
-                    }
-                    .contextMenu {
-                        Button("Edit…") { app.savedSearchDialog = search }
-                        Button("Remove from Sidebar") {
-                            if on { app.active.clearTag(); app.active.load() }
-                            store.remove(search.id)
+                        .contextMenu {
+                            Button("Edit…") { app.savedSearchDialog = search }
+                            Button("Remove from Sidebar") {
+                                if on { pane.clearTag(); pane.load() }
+                                store.remove(search.id)
+                            }
                         }
-                    }
                 }
-            }
-        }
-    }
-
-    private var tagsSection: some View {
-        let store = TagStore.shared
-        return VStack(alignment: .leading, spacing: 2 * s) {
-            sectionHeader("Tags")
-            if !isCollapsed("Tags") {
-                ForEach(store.all) { tag in
-                    let on = app.active.tagFilter == tag.name && app.active.savedSearchID == nil
-                    HStack(spacing: 8 * s) {
-                        tagCircle(tag.color)
-                            .frame(width: 20 * s)
-                        Text(tag.name)
-                            .font(.system(size: 13 * s))
-                            .foregroundStyle(Color.primary)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5 * s)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.primary.opacity(0.09) : Color.clear))
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if on {
-                            // Second click on the selected tag leaves the tag view.
-                            app.active.clearTag()
-                            app.active.load()
-                        } else {
-                            app.active.showTag(tag.name)
-                        }
-                    }
-                    .contextMenu {
-                        if tag.color == nil {
-                            Button("Remove from Sidebar") { store.remove(tag.name) }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-
-    private var shared: some View {
-        VStack(alignment: .leading, spacing: 2 * s) {
-            sectionHeader("Shared")
-            if !isCollapsed("Shared") {
-            ForEach(app.network.servers) { server in
-                HStack(spacing: 8 * s) {
-                    Image(systemName: "desktopcomputer")
-                        .font(.system(size: 12.5 * s))
-                        .foregroundStyle(Color.filetor)
-                        .frame(width: 20 * s)
-                    Text(server.name).font(.system(size: 13 * s)).lineLimit(1)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5 * s)
-                .contentShape(Rectangle())
-                .help("Connect to \(server.name)")
-                .onTapGesture { app.network.connect(server) }
-            }
             }
         }
     }

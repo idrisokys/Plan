@@ -137,7 +137,7 @@ enum NotesStore {
 
     // MARK: - Yazma
 
-    private static func write(_ dir: URL, _ base: String, _ data: Data, limitChars: Int = 220, ext: String = ".url") -> Bool {
+    private static func write(_ dir: URL, _ base: String, _ data: Data, limitChars: Int = 116, ext: String = ".url") -> Bool {
         lock.lock(); defer { lock.unlock() }
         let all = children(dir)
         let taken = Set(all.map { norm($0.name) })
@@ -309,7 +309,7 @@ enum NotesStore {
     /// Link (.url/.txt) veya klasör adını değiştirir; sıralamayı korur.
     static func rename(_ dir: URL, _ e: Entry, _ title: String) -> Bool {
         lock.lock(); defer { lock.unlock() }
-        let base = clean(title, 220)
+        let base = clean(title, 116)
         let newName = e.isDir ? base : base + e.ext
         // Kısa metin (not) ise: kopyalanan içerik de yeni ada uysun diye dosya içeriği güncellenir
         let isNote = !e.isDir && !e.isTxt && readLink(e.url).1 != nil
@@ -339,7 +339,7 @@ enum NotesStore {
         return true
     }
 
-    /// Düzenlenen .url kaydı ad sınırını (220) aşınca çağrılır: kayıt aynı yerde .txt dosyasına dönüşür
+    /// Düzenlenen .url kaydı ad sınırını (116) aşınca çağrılır: kayıt aynı yerde .txt dosyasına dönüşür
     /// (içerik = text; sıralamadaki yeri korunur, eski .url silinir). Dosya adı metnin ilk 100 karakteridir.
     static func convertToTxt(_ dir: URL, _ e: Entry, _ text: String) -> Bool {
         lock.lock(); defer { lock.unlock() }

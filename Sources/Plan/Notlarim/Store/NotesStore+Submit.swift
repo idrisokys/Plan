@@ -5,7 +5,7 @@ import Foundation
 /// bunları kullanır; ekleme kuralı ve arama mantığı yalnızca burada durur.
 extension NotesStore {
     /// Gönderilen metnin sınırı: bunu aşan (tek parça link olmayan) metin .txt olur.
-    static let addMax = 220
+    static let addMax = 116
 
     enum SubmitResult { case added, textFile, failed }
 

@@ -70,8 +70,8 @@ final class NotesModel: ObservableObject {
     }
     func bumpFont(_ delta: Double) { fontSize = min(max(fontSize + delta, NotesModel.minFont), NotesModel.maxFont) }
 
-    let maxChars = 220   // ad değiştirme sınırı
-    /// .url kayıtlarında (link/not) ad alanı sınırsızdır; 220'yi aşarsa kayıt otomatik .txt olur. Klasör ve .txt adları 220 ile sınırlı kalır.
+    let maxChars = 116   // ad değiştirme sınırı
+    /// .url kayıtlarında (link/not) ad alanı sınırsızdır; 116'yi aşarsa kayıt otomatik .txt olur. Klasör ve .txt adları 116 ile sınırlı kalır.
     var editCap: Int {
         if let r = renaming, !r.isDir, !r.isTxt { return 20_000 }
         return maxChars

@@ -12,7 +12,7 @@ Tek uygulama, iki parça:
   Yazınca en çok 3 not + (sorgu · + · eklenen motorlar) satırı çıkar.
 - Arama motoru ekle: Arama satırındaki + → ad ve adres (`%s` aranan kelimenin yerine geçer) yaz, Ekle. Yeni motor ilk harfiyle
   en sağda görünür (sağ tık → Sil).
-- Enter / "Ekle": link ise `~/Link/Url` klasörüne .url (Notlarım'da başka bir alt klasörün içindeyken orada kalır), kısa metin not, 220 karakterden uzunsa .txt olarak kaydeder.
+- Enter / "Ekle": link ise `~/Link/Url` klasörüne .url (Notlarım'da başka bir alt klasörün içindeyken orada kalır), kısa metin not, 116 karakterden uzunsa .txt olarak kaydeder.
 - Satırın üstüne gelince: Paylaş, Kopyala, Çöpe at. Linke tıkla = tarayıcıda açılır.
 - Herhangi bir uygulamada metin seç → Hizmetler → **"Notlarıma Kaydet"** (ilk seferde Sistem Ayarları > Klavye >
   Klavye Kısayolları > Hizmetler'den açman gerekebilir). Link ise sayfa başlığı otomatik alınır.

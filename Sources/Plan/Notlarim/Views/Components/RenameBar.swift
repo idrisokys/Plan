@@ -37,7 +37,7 @@ struct RenameBar: View {
                     return
                 }
                 prevCount = v.count
-                // Uzunluk sınırlanır (.url kayıtlarında 20 000; 220'yi aşan kayıt .txt olur)
+                // Uzunluk sınırlanır (.url kayıtlarında 20 000; 116'yi aşan kayıt .txt olur)
                 if v.count > m.editCap { m.renameText = String(v.prefix(m.editCap)) }
             }
 

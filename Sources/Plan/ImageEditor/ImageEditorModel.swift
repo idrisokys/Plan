@@ -124,7 +124,11 @@ final class ImageEditorModel: ObservableObject {
     var canNavigate: Bool { folderImages.count > 1 }
 
     static func imagesInFolder(of url: URL) -> [URL] {
-        let dir = url.deletingLastPathComponent()
+        images(in: url.deletingLastPathComponent())
+    }
+
+    /// Klasördeki resimler, en yeni ilk sırada.
+    static func images(in dir: URL) -> [URL] {
         let items = (try? FileManager.default.contentsOfDirectory(
             at: dir, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles])) ?? []
         let imgs = items.filter { u in

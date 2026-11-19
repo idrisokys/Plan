@@ -128,6 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSUpdateDynamicServices()
         registerShareExtension()
         Task { @MainActor in
+            SharePanel.installFiletorHooks()
             StatusItemController.shared.install()
             FloatingBar.shared.show(focus: false)      // arama çubuğu varsayılan olarak sağ altta sabit açılır
         }
@@ -163,6 +164,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         NotesModel.shared.externalSearch(q)
                     }
                 }
+                continue
+            }
+            // Finder Paylaş menüsünden gelen dosyalar: plan://send?f=<yol>&f=<yol> → açık cihaz seçme paneli
+            if u.host == "send" {
+                let files = (c.queryItems ?? []).filter { $0.name == "f" }.compactMap { $0.value }
+                    .map { URL(fileURLWithPath: $0) }
+                Task { @MainActor in SharePanel.shared.show(files: files) }
                 continue
             }
             guard let t = c.queryItems?.first(where: { $0.name == "t" })?.value else { continue }

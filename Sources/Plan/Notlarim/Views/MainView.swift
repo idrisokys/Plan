@@ -54,7 +54,7 @@ struct MainView: View {
                     MoveSheet(root: r, current: c, exclude: Set(m.moving.filter { $0.isDir }.map { $0.key }))
                 }
             case .share:
-                QuickShareSheet(files: m.sharing)
+                QuickShareSheet(files: m.sharing) { m.sheet = nil; m.sharing = [] }
             }
         }
         .onDrop(of: [UTType.url, UTType.plainText], isTargeted: nil) { providers in

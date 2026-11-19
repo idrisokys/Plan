@@ -35,6 +35,7 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere vars
 - `.txt` içinde arama (⌘F), eşleşmeler işaretli, ▲▼ ile gezinme.
 - Eşitleme: Hızlı Paylaş açıkken cihaz listesinin üstündeki ⇄ simgesi; açılan pencerede cihazlar işaretlenir ve "Bu cihaza göre / Karşıdaki cihaza göre / İki cihazda aynı olsun" seçilir. `~/Link` içeriği (Android'deki `<ana dizin>/Link` ile) eşitlenir; silinenler Çöp Kutusu'na gider.
 - Paylaş menüsü: Safari/Paylaş menüsünde **Notlarım** (uygulamanın içindeki `PlanShare.appex` eklentisi).
+- Dosya paylaşımı: **Finder'da** dosya(lar)ı seç → Paylaş → **Notlarım**: açık cihazlar paneli açılır, cihaza dokununca dosyalar gönderilir (klasörler zip'lenir). **Dosya yöneticisinde** (Filetor) sağ tık → **Share** altında açık cihazlar doğrudan listelenir; **Quick Share…** aynı paneli açar.
 - Adres şeması: `plan://add?t=…` ve `plan://search?q=…`.
 - Chrome eklentisi: `chrome-extension/` klasörü uygulamanın içine konur. Notlarım penceresi açıkken menü çubuğunda
   **Notlarım → Chrome Eklentisi Klasörünü Aç**. Kurulum: [chrome-extension/README.md](chrome-extension/README.md).

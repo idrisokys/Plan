@@ -141,7 +141,15 @@ final class QuickShare: ObservableObject {
         }
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             var okCount = 0
-            for f in files { if Self.sendOne(f, to: d.endpoint) { okCount += 1 } }
+            for f in files {
+                // Klasörler tek dosya olarak gönderilir: geçici bir .zip'e sıkıştırılır
+                var isDir: ObjCBool = false
+                if FileManager.default.fileExists(atPath: f.path, isDirectory: &isDir), isDir.boolValue {
+                    guard let z = Self.zipFolder(f) else { continue }
+                    defer { try? FileManager.default.removeItem(at: z.deletingLastPathComponent()) }
+                    if Self.sendOne(z, to: d.endpoint) { okCount += 1 }
+                } else if Self.sendOne(f, to: d.endpoint) { okCount += 1 }
+            }
             DispatchQueue.main.async { self.sendingTo.remove(d.id) }
             if okCount == files.count {
                 post(.sent, files.count == 1 ? "Gönderildi: \(first) → \(d.name)" : "\(okCount) dosya gönderildi → \(d.name)")
@@ -149,6 +157,21 @@ final class QuickShare: ObservableObject {
                 post(.failed, "Gönderilemedi (\(files.count - okCount) dosya) → \(d.name)")
             }
         }
+    }
+
+    /// Klasörü geçici bir dizine "<ad>.zip" olarak sıkıştırır (çağıran, dosyanın üst dizinini siler).
+    private static func zipFolder(_ dir: URL) -> URL? {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("qs-" + UUID().uuidString, isDirectory: true)
+        guard (try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)) != nil else { return nil }
+        let out = tmp.appendingPathComponent(dir.lastPathComponent + ".zip")
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+        p.arguments = ["-c", "-k", "--sequesterRsrc", "--keepParent", dir.path, out.path]
+        do { try p.run() } catch { try? FileManager.default.removeItem(at: tmp); return nil }
+        p.waitUntilExit()
+        if p.terminationStatus == 0 { return out }
+        try? FileManager.default.removeItem(at: tmp)
+        return nil
     }
 
     private static func sendOne(_ url: URL, to endpoint: NWEndpoint) -> Bool {

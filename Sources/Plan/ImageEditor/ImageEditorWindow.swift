@@ -3,7 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 import Combine
 
-/// Resim düzenleyici pencereleri: alt çubuktaki resim düğmesi bir resim seçtirir ve düzenleyiciyi açar.
+/// Resim düzenleyici pencereleri: menüdeki Düzenle düğmesi İndirilenler'deki en yeni resmi doğrudan açar (←/→ ile diğerleri gezilir).
 /// Her resim kendi penceresinde açılır; kaydedilmemiş değişiklik varsa kapatırken sorulur.
 @MainActor
 enum ImageEditorWindow {
@@ -11,7 +11,19 @@ enum ImageEditorWindow {
 
     static var hasWindows: Bool { !controllers.isEmpty }
 
-    /// Resim seç → düzenleyiciyi aç.
+    /// Seçim penceresi yok: İndirilenler'deki en yeni resim açılır, diğer resimler ←/→ ile gezilir.
+    static func openDownloads() {
+        let imgs = ImageEditorModel.images(in: MediaDir.downloads)
+        guard !imgs.isEmpty else {
+            HUD.show(L("İndirilenler'de resim yok", "No images in Downloads"))
+            return
+        }
+        // Açılamayan (bozuk) dosyalar atlanır; ilk açılan resimle düzenleyici başlar
+        for u in imgs { if open(u, quiet: true) { return } }
+        HUD.show(L("Resim açılamadı", "Could not open image"))
+    }
+
+    /// Resim seç → düzenleyiciyi aç (düzenleyicideki "Başka resim aç" düğmesi kullanır).
     /// `startingAt` verilirse seçici o klasörde açılır (ör. İndirilenler).
     static func openPicker(startingAt dir: URL? = nil) {
         NSApp.activate(ignoringOtherApps: true)
@@ -30,10 +42,11 @@ enum ImageEditorWindow {
         }
     }
 
-    static func open(_ url: URL) {
+    @discardableResult
+    static func open(_ url: URL, quiet: Bool = false) -> Bool {
         guard let model = ImageEditorModel(url: url) else {
-            HUD.show(L("Resim açılamadı", "Could not open image"))
-            return
+            if !quiet { HUD.show(L("Resim açılamadı", "Could not open image")) }
+            return false
         }
 
         let host = NSHostingView(rootView: ImageEditorView(model: model))
@@ -58,6 +71,7 @@ enum ImageEditorWindow {
         controllers.append(c)
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        return true
     }
 
     fileprivate static func closed(_ c: Controller) {

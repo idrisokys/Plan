@@ -611,11 +611,25 @@ struct FileTableView: NSViewRepresentable {
                 mi.image = img
                 shareMenu.addItem(mi)
             }
-            if shareMenu.items.isEmpty == false {
-                let shareItem = NSMenuItem(title: "Share", action: nil, keyEquivalent: "")
-                shareItem.submenu = shareMenu
-                menu.addItem(shareItem)
+            // Açık cihazlar (Hızlı Paylaş): listeden seçilen cihaza dosyalar doğrudan gönderilir
+            if !shareMenu.items.isEmpty { shareMenu.addItem(.separator()) }
+            let nearby = NearbyShare.devices()
+            if nearby.isEmpty {
+                let none = NSMenuItem(title: "No Nearby Devices Found", action: nil, keyEquivalent: "")
+                none.isEnabled = false
+                shareMenu.addItem(none)
+            } else {
+                for d in nearby {
+                    let mi = item(d.name) { NearbyShare.send(shareItems, d.id) }
+                    mi.image = NSImage(systemSymbolName: "wifi", accessibilityDescription: nil)
+                    shareMenu.addItem(mi)
+                }
             }
+            shareMenu.addItem(.separator())
+            shareMenu.addItem(item("Quick Share…") { NearbyShare.openPanel(shareItems) })
+            let shareItem = NSMenuItem(title: "Share", action: nil, keyEquivalent: "")
+            shareItem.submenu = shareMenu
+            menu.addItem(shareItem)
             menu.addItem(item("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting(Array(urls)) })
             menu.addItem(.separator())
             let folders = urls.filter { u in items.first { $0.url == u }?.isDirectory ?? false }

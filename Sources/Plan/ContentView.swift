@@ -66,7 +66,7 @@ struct ContentView: View {
     @State private var addOpen = false
     @State private var newName = ""
     @State private var newURL = ""
-    @State private var syncOpen = false          // ⇄ simgesinin penceresi
+    @State private var syncOpen = false          // ⇄ simgesinin penceresi (menü satırında)
     @State private var syncPicked = Set<String>()
     @State private var menuOpen = false          // menü simgesinin üstündeki satır
     @FocusState private var focused: Bool
@@ -114,7 +114,7 @@ struct ContentView: View {
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
             Button { NotesWindow.toggle() } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help("Notlarım (aç/kapat)")
-            // Üç çizgili menü: tam üstünde Kapat / Resim çek / Düzenle / Dosya yöneticisi satırını açar ve kapatır
+            // Üç çizgili menü: tam üstünde Eşitle / Kapat / Resim çek / Düzenle / Dosya yöneticisi satırını açar ve kapatır
             Button { withAnimation(.easeOut(duration: 0.15)) { menuOpen.toggle() } } label: {
                 circleView { MenuLinesIcon() }
                     .overlay(Circle().stroke(Color.white.opacity(menuOpen ? 0.8 : 0), lineWidth: 1.5))
@@ -123,19 +123,27 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Menü simgesinin tam üstündeki satır: [Kapat] [Resim çek] [Düzenle] [Dosya yöneticisi]
+    // MARK: Menü simgesinin tam üstündeki satır: [Eşitle] [Kapat] [Resim çek] [Düzenle] [Dosya yöneticisi]
     // Sağ kenar, çubuktaki menü simgesinin hizasında.
     private var menuRow: some View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
+            // Eşitle ⇄: Link klasörünü açık cihazlarla eşitler. Pencerede cihazlar işaretlenir, eşitleme yöntemi seçilir.
+            Button { syncOpen.toggle() } label: {
+                if qs.syncing { circleView { ProgressView().controlSize(.small) } }
+                else { circle("arrow.triangle.2.circlepath") }
+            }
+            .buttonStyle(.plain).disabled(qs.syncing)
+            .help(L("Cihazlarla eşitle (Link klasörü)", "Sync with devices (Link folder)"))
+            .popover(isPresented: $syncOpen, arrowEdge: .top) { syncPopover }
             // Kapat: uygulamayı tamamen kapatır
             Button { NSApp.terminate(nil) } label: { circle("xmark") }
                 .buttonStyle(.plain).help(L("Uygulamayı kapat", "Quit app"))
             Button { CameraWindow.open() } label: { circle("camera") }
                 .buttonStyle(.plain).help(L("Resim çek (İndirilenler'e kaydedilir)", "Take photo (saved to Downloads)"))
-            // Düzenle: İndirilenler klasörü açılır; çekilen resimler orada
-            Button { ImageEditorWindow.openPicker(startingAt: MediaDir.downloads) } label: { circle("slider.horizontal.3") }
-                .buttonStyle(.plain).help(L("Düzenle (İndirilenler klasörü açılır)", "Edit (opens Downloads folder)"))
+            // Düzenle: seçim penceresi yok; İndirilenler'deki en yeni resim açılır (←/→ ile diğerleri gezilir)
+            Button { ImageEditorWindow.openDownloads() } label: { circle("slider.horizontal.3") }
+                .buttonStyle(.plain).help(L("Düzenle (İndirilenler'deki resimler)", "Edit (images in Downloads)"))
             // Dosya yöneticisi: Plan'ın parçası (Filetor), kendi penceresinde açılır
             Button { FiletorWindow.show() } label: { circleView { FileManagerIcon() } }
                 .buttonStyle(.plain).help(L("Dosya yöneticisi", "File manager"))
@@ -157,7 +165,6 @@ struct ContentView: View {
     // MARK: Paylaşım açıkken: o an açık cihazlar, sağında klasör ikonu
     private var devicesList: some View {
         VStack(spacing: 0) {
-            syncHeader
             if qs.devices.isEmpty {
                 Text("Açık cihaz aranıyor…").font(.system(size: 15)).foregroundStyle(dim)
                     .frame(maxWidth: .infinity, minHeight: 44)
@@ -181,20 +188,6 @@ struct ContentView: View {
         }
         .padding(.vertical, 4)
         .background(RoundedRectangle(cornerRadius: 14).fill(menuBG))
-    }
-
-    /// Cihaz listesinin üst satırı: sağda ⇄ (Link klasörünü eşitle). Pencerede cihazlar işaretlenir, eşitleme yöntemi seçilir.
-    private var syncHeader: some View {
-        HStack(spacing: 8) {
-            Spacer(minLength: 0)
-            Button { syncOpen.toggle() } label: {
-                if qs.syncing { ProgressView().controlSize(.small).frame(width: 30, height: 30) }
-                else { circle("arrow.triangle.2.circlepath", size: 30) }
-            }
-            .buttonStyle(.plain).disabled(qs.syncing)
-            .help(L("Cihazlarla eşitle (Link klasörü)", "Sync with devices (Link folder)"))
-            .popover(isPresented: $syncOpen, arrowEdge: .top) { syncPopover }
-        }.padding(.horizontal, 8).padding(.top, 4)
     }
 
     private var syncPopover: some View {

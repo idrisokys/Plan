@@ -3,9 +3,9 @@ import AppKit
 
 /// Android'deki Paylaş penceresi: seçili notların kaynak dosyaları (.txt / .url) Hızlı Paylaş ile açık cihaza gönderilir.
 struct QuickShareSheet: View {
-    @EnvironmentObject var m: NotesModel
     @ObservedObject private var qs = QuickShare.shared
     let files: [URL]
+    let onClose: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -63,8 +63,5 @@ struct QuickShareSheet: View {
         qs.send(files, to: d)
     }
 
-    private func close() {
-        m.sheet = nil
-        m.sharing = []
-    }
+    private func close() { onClose() }
 }

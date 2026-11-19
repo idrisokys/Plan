@@ -254,7 +254,7 @@ struct FileTableView: NSViewRepresentable {
         // MARK: Copy / paste files (⌘C, ⌘V) and Return to rename
 
         func copySelection() {
-            let urls = previewURLs
+            let urls = selectedURLs
             guard !urls.isEmpty else { return }
             let pb = NSPasteboard.general
             pb.clearContents()
@@ -269,13 +269,13 @@ struct FileTableView: NSViewRepresentable {
         }
 
         func renameSelection() {
-            let urls = Set(previewURLs)
+            let urls = Set(selectedURLs)
             if !urls.isEmpty { parent.app.beginRename(urls) }
         }
 
         /// Delete key (⌫ or forward delete): moves the selection straight to the Trash.
         func trashSelection() {
-            let urls = Set(previewURLs)
+            let urls = Set(selectedURLs)
             if !urls.isEmpty { parent.app.trash(urls) }
         }
 

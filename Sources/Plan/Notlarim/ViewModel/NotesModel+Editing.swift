@@ -17,6 +17,13 @@ extension NotesModel {
         }
     }
 
+    /// Çöp simgesi: seçili öğeleri hızlıca .onemsiz klasörüne taşır.
+    func trashSelected() {
+        let items = list.filter { selected.contains($0.key) }
+        if items.isEmpty { toast(L("Önce öğe seçin", "Select items first")); return }
+        deleteNow(items)
+    }
+
     /// "Sabitle" / "Sabitlemeyi kaldır": hepsi sabitliyse kaldırır, değilse hepsini sabitler.
     func togglePin(_ items: [Entry]) {
         guard let dir = current, !items.isEmpty else { return }

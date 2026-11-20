@@ -26,11 +26,9 @@ struct MainView: View {
                     }
                     if m.searchQuery == nil {
                         IconBtn(MI.createNewFolder, help: L("Klasör", "Folder"), box: ToolbarMetrics.box) { m.sheet = .folder }
-                        // U: içinde bulunulan klasör linklerin (URL) varsayılan kayıt yeri olur
-                        letterButton("U", help: L("Veri yeri U: bu klasör linklerin varsayılan kayıt yeri olur", "Data place U: make this folder the default for links")) { m.setPlaceUHere() }
-                        // D: içinde bulunulan klasör diğer kayıtların (kısa metin ve .txt) varsayılan kayıt yeri olur
-                        letterButton("D", help: L("Veri yeri D: bu klasör diğer kayıtların (not, .txt) varsayılan kayıt yeri olur", "Data place D: make this folder the default for other items (notes, .txt)")) { m.setPlaceDHere() }
                         IconBtn(MI.refresh, help: L("Yenile (⌘R)", "Refresh (⌘R)"), box: ToolbarMetrics.box) { m.refresh() }
+                        // Çöp: seçilenleri hızlıca .onemsiz klasörüne taşır
+                        IconBtn(MI.delete, help: L("Seçilenleri .onemsiz klasörüne taşı", "Move selected to .onemsiz"), box: ToolbarMetrics.box) { m.trashSelected() }
                     }
                     PinWindowButton()
                     // Başlık yok; yalnızca arama sonucu ya da seçili sayısı varsa kısa bilgi gösterilir.
@@ -60,17 +58,6 @@ struct MainView: View {
         .onDrop(of: [UTType.url, UTType.plainText], isTargeted: nil) { providers in
             m.handleDrop(providers)
         }
-    }
-
-    private func letterButton(_ t: String, help: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(t).font(.system(size: 17, weight: .bold))
-                .foregroundStyle(NT.onSurface)
-                .frame(width: ToolbarMetrics.box, height: 34)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
     }
 
     @ViewBuilder

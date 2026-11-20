@@ -159,7 +159,7 @@ enum NotesStore {
     static func addNote(_ dir: URL, text: String) -> Bool {
         var title = text.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmed
         if title.isEmpty { title = "not" }
-        return write(otherDir(for: dir), title, noteBytes(text))
+        return write(dir, title, noteBytes(text))
     }
 
     /// Kısa metin (not) kaydı: .url içinde TEXT= satırı.
@@ -174,7 +174,7 @@ enum NotesStore {
     static func addTextFile(_ dir: URL, text: String) -> Bool {
         var title = text.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmed
         if title.isEmpty { title = "not" }
-        return write(otherDir(for: dir), title, Data(text.utf8), limitChars: 100, ext: ".txt")
+        return write(dir, title, Data(text.utf8), limitChars: 100, ext: ".txt")
     }
 
     static func readPlain(_ url: URL) -> String? {
@@ -201,65 +201,12 @@ enum NotesStore {
         return u.count > 8 ? u : nil
     }
 
-    /// Linklerin varsayılan klasörü: kök klasörün altındaki "Url" (yoksa oluşturulur).
-    static let linkFolderName = "Url"
-
-    // MARK: - Veri yeri U / D (⋮ menüsünden seçilir; yalnızca bu Mac'te tutulur)
-
-    private static let placeUKey = "dataPlaceU"   // linklerin (URL) varsayılan kayıt klasörü
-    private static let placeDKey = "dataPlaceD"   // diğer kayıtların (kısa metin .url ve .txt) varsayılan kayıt klasörü
-
-    /// Kayıtlı veri yeri yazılabilir bir klasörse onu, değilse (ayarlanmamış / silinmiş) nil döndürür.
-    private static func place(_ key: String) -> URL? {
-        guard let p = UserDefaults.standard.string(forKey: key), usable(p) else { return nil }
-        return URL(fileURLWithPath: p, isDirectory: true)
-    }
-    static var placeU: URL? { place(placeUKey) }
-    static var placeD: URL? { place(placeDKey) }
-    static func setPlaceU(_ u: URL) { UserDefaults.standard.set(u.standardizedFileURL.path, forKey: placeUKey) }
-    static func setPlaceD(_ u: URL) { UserDefaults.standard.set(u.standardizedFileURL.path, forKey: placeDKey) }
-
-    /// Bir klasör yeniden adlandırılınca / taşınınca / silinince veri yeri yollarını günceller (new nil ise kaldırır).
-    private static func remapPlaces(old: URL, new: URL?) {
-        let o = old.standardizedFileURL.path
-        let d = UserDefaults.standard
-        for k in [placeUKey, placeDKey] {
-            guard let p = d.string(forKey: k) else { continue }
-            if p == o || p.hasPrefix(o + "/") {
-                if let n = new { d.set(n.standardizedFileURL.path + String(p.dropFirst(o.count)), forKey: k) }
-                else { d.removeObject(forKey: k) }
-            }
-        }
-    }
-
-    private static func isRoot(_ dir: URL) -> Bool {
-        guard let r = root else { return false }
-        return dir.standardizedFileURL.path == r.standardizedFileURL.path
-    }
-
-    /// Link dışındaki kayıtlar (kısa metin, .txt): `dir` kök klasörse Veri yeri D'ye gider; başka bir klasörün içindeyse orada kalır.
-    static func otherDir(for dir: URL) -> URL {
-        guard isRoot(dir), let d = placeD else { return dir }
-        return d
-    }
-
-    /// Linkler: `dir` kök klasörse Veri yeri U'ya (ayarlı değilse Url klasörüne) gider; başka bir klasörün içindeyse aynen döndürür.
-    static func linkDir(for dir: URL) -> URL {
-        guard let r = root, dir.standardizedFileURL.path == r.standardizedFileURL.path else { return dir }
-        if let u = placeU { return u }
-        lock.lock(); defer { lock.unlock() }
-        let all = children(r)
-        if let e = all.first(where: { $0.isDir && norm($0.name) == norm(linkFolderName) }) { return e.url }
-        return addFolder(r, linkFolderName) ?? dir
-    }
-
     /// Link veya metni uygun şekilde kaydeder. Ağ erişimi yaptığı için arka planda çağrılmalı.
     static func addFromText(_ dir: URL, _ text: String, _ subject: String? = nil) async -> Bool {
         let t = text.trimmed
         if t.isEmpty { return false }
         guard let url = extractUrl(t) else { return addNote(dir, text: t) }
-        // Linkler varsayılan olarak Link/Url klasörüne kaydedilir (kullanıcı başka bir alt klasörün içindeyse orada kalır).
-        let dir = linkDir(for: dir)
+        // Tüm kayıtlar (link, not, .txt) bulunulan klasöre, yani ana Link klasörüne kaydedilir.
         // Paylaşan tarayıcı sayfanın başlığını veriyorsa (Safari/Chrome) o kullanılır; yoksa sayfa indirilip <title> alınır.
         var title: String? = nil
         if let s = subject?.components(separatedBy: .newlines).first(where: { !$0.trimmed.isEmpty })?.trimmed,
@@ -287,7 +234,6 @@ enum NotesStore {
         while taken.contains(norm(name)) { name = "\(base) (\(i))\(ext)"; i += 1 }
         do { try FileManager.default.moveItem(at: e.url, to: target.appendingPathComponent(name)) } catch { return false }
         renamePin(e.url.deletingLastPathComponent(), e.name, nil)
-        if e.isDir { remapPlaces(old: e.url, new: target.appendingPathComponent(name)) }
         saveOrderIn(target, ordered(all).map { $0.name } + [name])
         return true
     }
@@ -335,7 +281,6 @@ enum NotesStore {
         if isNote { try? noteBytes(title.trimmed).write(to: dest, options: .atomic) }
         saveOrderIn(dir, order.map { $0 == e.name ? newName : $0 })
         renamePin(dir, e.name, newName)
-        if e.isDir { remapPlaces(old: e.url, new: dest) }
         return true
     }
 
@@ -382,7 +327,6 @@ enum NotesStore {
         }
         do { try fm.moveItem(at: url, to: t) } catch { return false }
         renamePin(url.deletingLastPathComponent(), name, nil)
-        remapPlaces(old: url, new: nil)
         return true
     }
 

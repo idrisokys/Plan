@@ -62,7 +62,7 @@ final class FloatingBar {
         h.wantsLayer = true
         h.layer?.cornerRadius = 16
         h.layer?.masksToBounds = true
-        let p = BarPanel(contentRect: NSRect(x: 0, y: 0, width: 380, height: 62),
+        let p = BarPanel(contentRect: NSRect(x: 0, y: 0, width: 330, height: 62),
                          styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         p.contentView = h
         p.isOpaque = false

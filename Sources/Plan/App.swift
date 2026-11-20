@@ -128,7 +128,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSUpdateDynamicServices()
         registerShareExtension()
         Task { @MainActor in
-            SharePanel.installFiletorHooks()
             StatusItemController.shared.install()
             FloatingBar.shared.show(focus: false)      // arama çubuğu varsayılan olarak sağ altta sabit açılır
         }

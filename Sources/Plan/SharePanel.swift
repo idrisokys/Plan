@@ -1,8 +1,7 @@
 import SwiftUI
 import AppKit
-import Filetor
 
-/// Finder'ın Paylaş menüsünden ve dosya yöneticisinden gelen dosyalar için "açık cihaz seç" paneli.
+/// Finder'ın Paylaş menüsünden gelen dosyalar için "açık cihaz seç" paneli.
 /// Hızlı Paylaş kapalıysa açılır; listeden cihaza dokununca dosyalar gönderilir, bitince panel kapanır.
 @MainActor
 final class SharePanel {
@@ -34,17 +33,5 @@ final class SharePanel {
     func close() {
         panel?.orderOut(nil)
         panel = nil
-    }
-
-    /// Filetor'un Paylaş menüsü bu alanlar üzerinden açık cihazları listeler ve gönderir.
-    static func installFiletorHooks() {
-        NearbyShare.devices = {
-            QuickShare.shared.devices.map { NearbyShare.Device(id: $0.id, name: $0.name) }
-        }
-        NearbyShare.send = { files, id in
-            guard let d = QuickShare.shared.devices.first(where: { $0.id == id }) else { return }
-            QuickShare.shared.send(files, to: d)
-        }
-        NearbyShare.openPanel = { files in SharePanel.shared.show(files: files) }
     }
 }

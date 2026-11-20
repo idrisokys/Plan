@@ -1,14 +1,16 @@
 import SwiftUI
 import AppKit
-import Filetor
 
 // Koyu zemin, yarı saydam siyah yuvarlak düğmeler.
 // Üst çubuk: [Paylaş] [arama kutusu] [Kalem → Notlarım] [Gizle]
 private let panelBG = Color(white: 0.13)
 private let idleBG = Color.black.opacity(0.45)
-private let onRed = Color(red: 1.0, green: 0.45, blue: 0.45)          // açık kırmızı "ON"
+private let onBlue = Color(red: 0.55, green: 0.80, blue: 1.0)          // açık mavi "ON"
 private let menuBG = Color(red: 0.165, green: 0.165, blue: 0.165)
 private let dim = Color.white.opacity(0.67)
+
+/// Paylaş / ON simgesinin ve altındaki ⇄ simgesinin çapı (aynı hizada dururlar).
+private let onSize: CGFloat = 30
 
 private func circle(_ system: String, size: CGFloat = 36) -> some View {
     Image(systemName: system).font(.system(size: 15, weight: .medium)).foregroundStyle(.white)
@@ -66,9 +68,8 @@ struct ContentView: View {
     @State private var addOpen = false
     @State private var newName = ""
     @State private var newURL = ""
-    @State private var syncOpen = false          // ⇄ simgesinin penceresi (menü satırında)
+    @State private var syncOpen = false          // ⇄ simgesinin penceresi (açık cihaz satırında)
     @State private var syncPicked = Set<String>()
-    @State private var menuOpen = false          // menü simgesinin üstündeki satır
     @FocusState private var focused: Bool
 
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -78,13 +79,12 @@ struct ContentView: View {
             // Çubuk ekranın altında sabit: arama kutusu en altta, sonuçlar ondan yukarı doğru dizilir
             // (panel sağ alt köşe sabit kalıp yukarı büyür).
             if !trimmed.isEmpty { searchResults }
-            if qs.running { devicesList }
+            if qs.running { devicesList; syncRow }
             if !status.isEmpty { Text(status).font(.footnote).foregroundStyle(dim) }
-            if menuOpen { menuRow }
             bar
         }
         .padding(12)
-        .frame(width: 380)
+        .frame(width: 330)
         .background(panelBG)
         .preferredColorScheme(.dark)
         .onAppear { focused = true; search() }
@@ -99,7 +99,7 @@ struct ContentView: View {
     // MARK: Üst çubuk
     private var bar: some View {
         HStack(spacing: 8) {
-            // Hızlı Paylaş: dokun = aç/kapat. Açıkken ikon açık kırmızı "ON" olur. (Basılı tutarak klasör açma kaldırıldı.)
+            // Hızlı Paylaş: dokun = aç/kapat. Açıkken ikon açık mavi "ON" olur. (Basılı tutarak klasör açma kaldırıldı.)
             shareButton
                 .contentShape(Circle())
                 .onTapGesture { qs.toggle() }
@@ -114,51 +114,35 @@ struct ContentView: View {
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
             Button { NotesWindow.toggle() } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help("Notlarım (aç/kapat)")
-            // Üç çizgili menü: tam üstünde Eşitle / Kapat / Resim çek / Düzenle / Dosya yöneticisi satırını açar ve kapatır
-            Button { withAnimation(.easeOut(duration: 0.15)) { menuOpen.toggle() } } label: {
-                circleView { MenuLinesIcon() }
-                    .overlay(Circle().stroke(Color.white.opacity(menuOpen ? 0.8 : 0), lineWidth: 1.5))
-            }
-            .buttonStyle(.plain).help(L("Menü", "Menu"))
+            // Kapat: uygulamayı tamamen kapatır
+            Button { NSApp.terminate(nil) } label: { circle("xmark") }
+                .buttonStyle(.plain).help(L("Uygulamayı kapat", "Quit app"))
         }
     }
 
-    // MARK: Menü simgesinin tam üstündeki satır: [Eşitle] [Kapat] [Resim çek] [Düzenle] [Dosya yöneticisi]
-    // Sağ kenar, çubuktaki menü simgesinin hizasında.
-    private var menuRow: some View {
-        HStack(spacing: 8) {
-            Spacer(minLength: 0)
-            // Eşitle ⇄: Link klasörünü açık cihazlarla eşitler. Pencerede cihazlar işaretlenir, eşitleme yöntemi seçilir.
+    // MARK: Paylaşım açılınca cihaz listesinin altında, "ON" simgesinin tam üstünde: Eşitle ⇄
+    // Link klasörünü açık cihazlarla eşitler. Pencerede cihazlar işaretlenir, eşitleme yöntemi seçilir.
+    private var syncRow: some View {
+        HStack(spacing: 0) {
             Button { syncOpen.toggle() } label: {
-                if qs.syncing { circleView { ProgressView().controlSize(.small) } }
-                else { circle("arrow.triangle.2.circlepath") }
+                if qs.syncing { circleView(size: onSize) { ProgressView().controlSize(.small) } }
+                else { circle("arrow.triangle.2.circlepath", size: onSize) }
             }
             .buttonStyle(.plain).disabled(qs.syncing)
             .help(L("Cihazlarla eşitle (Link klasörü)", "Sync with devices (Link folder)"))
             .popover(isPresented: $syncOpen, arrowEdge: .top) { syncPopover }
-            // Kapat: uygulamayı tamamen kapatır
-            Button { NSApp.terminate(nil) } label: { circle("xmark") }
-                .buttonStyle(.plain).help(L("Uygulamayı kapat", "Quit app"))
-            Button { CameraWindow.open() } label: { circle("camera") }
-                .buttonStyle(.plain).help(L("Resim çek (İndirilenler'e kaydedilir)", "Take photo (saved to Downloads)"))
-            // Düzenle: seçim penceresi yok; İndirilenler'deki en yeni resim açılır (←/→ ile diğerleri gezilir)
-            Button { ImageEditorWindow.openDownloads() } label: { circle("slider.horizontal.3") }
-                .buttonStyle(.plain).help(L("Düzenle (İndirilenler'deki resimler)", "Edit (images in Downloads)"))
-            // Dosya yöneticisi: Plan'ın parçası (Filetor), kendi penceresinde açılır
-            Button { FiletorWindow.show() } label: { circleView { FileManagerIcon() } }
-                .buttonStyle(.plain).help(L("Dosya yöneticisi", "File manager"))
+            Spacer(minLength: 0)
         }
-        .transition(.opacity)
     }
 
     @ViewBuilder private var shareButton: some View {
         if qs.running {
-            Text("ON").font(.system(size: 14, weight: .heavy)).foregroundStyle(onRed)
-                .frame(width: 36, height: 36)
-                .background(Circle().fill(onRed.opacity(0.18)))
-                .overlay(Circle().stroke(onRed.opacity(0.8), lineWidth: 1.5))
+            Text("ON").font(.system(size: 11, weight: .heavy)).foregroundStyle(onBlue)
+                .frame(width: onSize, height: onSize)
+                .background(Circle().fill(onBlue.opacity(0.18)))
+                .overlay(Circle().stroke(onBlue.opacity(0.8), lineWidth: 1.5))
         } else {
-            circle("antenna.radiowaves.left.and.right")
+            circle("antenna.radiowaves.left.and.right", size: onSize)
         }
     }
 
@@ -167,18 +151,18 @@ struct ContentView: View {
         VStack(spacing: 0) {
             if qs.devices.isEmpty {
                 Text("Açık cihaz aranıyor…").font(.system(size: 15)).foregroundStyle(dim)
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .frame(maxWidth: .infinity, minHeight: 40)
             } else {
                 ForEach(qs.devices) { d in
                     HStack(spacing: 12) {
-                        Image(systemName: "wifi").font(.system(size: 15)).foregroundStyle(.white)
-                            .frame(width: 34, height: 34).background(Circle().fill(Color.white.opacity(0.12)))
-                        Text(d.name).font(.system(size: 19)).foregroundStyle(.white).lineLimit(1)
+                        Image(systemName: "wifi").font(.system(size: 13)).foregroundStyle(.white)
+                            .frame(width: 30, height: 30).background(Circle().fill(Color.white.opacity(0.12)))
+                        Text(d.name).font(.system(size: 15)).foregroundStyle(.white).lineLimit(1)
                         Spacer(minLength: 4)
                         if qs.sendingTo.contains(d.id) {
-                            ProgressView().controlSize(.small).frame(width: 34, height: 34)
+                            ProgressView().controlSize(.small).frame(width: 30, height: 30)
                         } else {
-                            Button { pickAndSend(to: d) } label: { circle("folder", size: 34) }
+                            Button { pickAndSend(to: d) } label: { circle("folder", size: 30) }
                                 .buttonStyle(.plain).help("Dosya seç ve gönder")
                         }
                     }.padding(.horizontal, 8).padding(.vertical, 5)
@@ -220,11 +204,12 @@ struct ContentView: View {
         return VStack(spacing: 0) {
             Divider().overlay(Color.white.opacity(0.1)).padding(.horizontal, 8)
             HStack(spacing: 8) {
-                Image(systemName: i?.icon ?? "tray.and.arrow.down").font(.system(size: 13)).foregroundStyle(dim)
+                Image(systemName: i?.icon ?? "tray.and.arrow.down").font(.system(size: 13)).foregroundStyle(.white)
+                    .frame(width: 30, height: 30).background(Circle().fill(Color.white.opacity(0.12)))
                 Text(i?.text ?? "Gönderilen ve alınan dosyalar burada görünür")
-                    .font(.system(size: 13)).foregroundStyle(dim).lineLimit(1).truncationMode(.middle)
+                    .font(.system(size: 15)).foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 0)
-            }.padding(.horizontal, 12).padding(.vertical, 8)
+            }.padding(.horizontal, 8).padding(.vertical, 5)
             .contentShape(Rectangle())
             .onTapGesture { if let f = i?.folder { NSWorkspace.shared.open(f) } }     // "Alındı" satırı: kayıt klasörünü aç
             .help(i?.folder != nil ? "Kayıt klasörünü aç" : "")

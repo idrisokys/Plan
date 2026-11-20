@@ -8,7 +8,7 @@ Tek uygulama, iki parça:
 
 ## Menü çubuğu paneli
 
-- Üst çubuk: [Paylaş] [arama kutusu] [Kalem] [Menü ☰]. Kalem = **Notlarım penceresini** açar; Menü (☰) = üstünde Kapat, Resim çek, Düzenle ve Dosya yöneticisi satırını açar; Kapat (✕) uygulamayı tamamen kapatır.
+- Üst çubuk: [Paylaş] [arama kutusu] [Kalem] [✕]. Kalem = **Notlarım penceresini** açar; Kapat (✕) uygulamayı tamamen kapatır. Paylaşım açılınca cihaz listesinin altında, "ON" simgesinin hizasında **Eşitle ⇄** düğmesi çıkar.
   Yazınca en çok 3 not + (sorgu · + · eklenen motorlar) satırı çıkar.
 - Arama motoru ekle: Arama satırındaki + → ad ve adres (`%s` aranan kelimenin yerine geçer) yaz, Ekle. Yeni motor ilk harfiyle
   en sağda görünür (sağ tık → Sil).
@@ -16,7 +16,7 @@ Tek uygulama, iki parça:
 - Satırın üstüne gelince: Paylaş, Kopyala, Çöpe at. Linke tıkla = tarayıcıda açılır.
 - Herhangi bir uygulamada metin seç → Hizmetler → **"Notlarıma Kaydet"** (ilk seferde Sistem Ayarları > Klavye >
   Klavye Kısayolları > Hizmetler'den açman gerekebilir). Link ise sayfa başlığı otomatik alınır.
-- Hızlı Paylaş (Android'deki aynı protokol): soldaki anten düğmesi = ağdan dosya almayı aç/kapat (açıkken açık kırmızı "ON"). Paylaşım ekranındaki "Alındı" satırına tıklayınca dosyanın kaydedildiği klasör açılır. Paylaşım açıkken altta açık cihazlar listelenir; klasör simgesiyle dosya gönderirsin.
+- Hızlı Paylaş (Android'deki aynı protokol): soldaki anten düğmesi = ağdan dosya almayı aç/kapat (açıkken açık mavi "ON"). Paylaşım ekranındaki "Alındı" satırına tıklayınca dosyanın kaydedildiği klasör açılır. Paylaşım açıkken altta açık cihazlar listelenir; klasör simgesiyle dosya gönderirsin.
 
 - Menü çubuğu simgesine sağ tık: **Notlarım**, **Kayıt yeri** (paylaşımla gelen dosyaların klasörünü seç), **Notlarım klasörü** (~/Link'i Finder'da aç), Çık.
 
@@ -35,33 +35,10 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere vars
 - `.txt` içinde arama (⌘F), eşleşmeler işaretli, ▲▼ ile gezinme.
 - Eşitleme: Hızlı Paylaş açıkken cihaz listesinin üstündeki ⇄ simgesi; açılan pencerede cihazlar işaretlenir ve "Bu cihaza göre / Karşıdaki cihaza göre / İki cihazda aynı olsun" seçilir. `~/Link` içeriği (Android'deki `<ana dizin>/Link` ile) eşitlenir; silinenler Çöp Kutusu'na gider.
 - Paylaş menüsü: Safari/Paylaş menüsünde **Notlarım** (uygulamanın içindeki `PlanShare.appex` eklentisi).
-- Dosya paylaşımı: **Finder'da** dosya(lar)ı seç → Paylaş → **Notlarım**: açık cihazlar paneli açılır, cihaza dokununca dosyalar gönderilir (klasörler zip'lenir). **Dosya yöneticisinde** (Filetor) sağ tık → **Share** altında açık cihazlar doğrudan listelenir; **Quick Share…** aynı paneli açar.
+- Dosya paylaşımı: **Finder'da** dosya(lar)ı seç → Paylaş → **Notlarım**: açık cihazlar paneli açılır, cihaza dokununca dosyalar gönderilir (klasörler zip'lenir).
 - Adres şeması: `plan://add?t=…` ve `plan://search?q=…`.
 - Chrome eklentisi: `chrome-extension/` klasörü uygulamanın içine konur. Notlarım penceresi açıkken menü çubuğunda
   **Notlarım → Chrome Eklentisi Klasörünü Aç**. Kurulum: [chrome-extension/README.md](chrome-extension/README.md).
-
-## Resim düzenleyici
-
-Üst çubuktaki **üç çizgili menü** simgesine tıklayınca tam üstünde bir satır açılır: **Kapat** (uygulamayı kapatır), **Resim çek**, **Düzenle**, **Dosya yöneticisi**.
-Resim çekme penceresinde **Boşluk (Space)** tuşu resim çeker; alttaki önizleme şeridinde çekilenler görünür ve birine tıklayınca resim düzenleyicide açılır. Çekilen resimler **İndirilenler** klasörüne kaydedilir (`Plan_tarih_saat.jpg`; ilk kullanımda kamera izni sorulur).
-**Düzenle** İndirilenler klasöründe bir seçici açar; seçilen resim düzenleyicide açılır
-(Android'deki Temel Düzenleyici'nin macOS karşılığı; kod `Sources/Plan/ImageEditor/`).
-
-- **Filtre**: Siyah-Beyaz, Noir, Sepya, Klasik, Solgun, Chrome, Soğuk, Sıcak, Kontrast, Canlı, Parlak, Keskin, Vinyet, Negatif.
-- **Kırp / Döndür**: serbest, 1:1, 4:3, 16:9, özel oran; sağa döndür, yatay / dikey çevir, yeniden boyutlandır.
-- **Çiz**: renk, fırça boyutu, geri al (⌘Z tüm adımları geri alır).
-- Kaydet menüsü: **Farklı kaydet…** (png / jpg / heic / tiff) ya da **Üzerine yaz** (onay sorar). Panoya kopyala düğmesi de var.
-
-
-## Dosya yöneticisi (Filetor)
-
-Menü satırındaki **klasör + dikey çizgi** simgesi dosya yöneticisini ayrı bir pencerede açar. Kod `Sources/Filetor/` içinde,
-Plan'ın kitaplık hedefi olarak derlenir (David Praznik'in MIT lisanslı Filetor projesi, lisans: `Sources/Filetor/LICENSE-Filetor`).
-Çift panel, sekmeler, ağ sürücüleri, arşivleme, toplu yeniden adlandırma, kopyalama / taşıma / eşitleme. Arayüz İngilizcedir.
-Kısayollar pencere içinde çalışır (⌘T yeni sekme, ⌘W sekmeyi kapat, ⌘K eylemler, F5 / F6 diğer panele kopyala / taşı).
-Uygulama içindeki Filetor ayarları (görünüm, vurgu rengi) yalnızca bu pencereyi etkiler. GitHub güncelleme denetimi kaldırıldı.
-
-**Sistem gereksinimi:** Filetor `@Observable` kullandığı için Plan artık **macOS 14.6+** ister; derleme için Swift 6.2 (Xcode 26+).
 
 ## Klasör yapısı
 
@@ -78,10 +55,6 @@ Sources/Plan/
 ├── ContentView.swift    # Arama çubuğu (ekleme/arama Notlarım ile ortak: NotesStore.submit / searchAsync)
 ├── FloatingBar.swift    # Arama çubuğunu sağ alt köşeye sabitleyen yüzen panel; menü çubuğu simgesi göster/gizle
 ├── QuickShare.swift     # Hızlı Paylaş
-├── ImageEditor/         # Resim düzenleyici (model, arayüz, pencere)
-├── Camera/              # Resim çek (İndirilenler'e kaydeder)
-├── MenuIcons.swift      # Üç çizgili menü ve dosya yöneticisi simgeleri
-(Sources/Filetor/        # Dosya yöneticisi kitaplığı; giriş: FiletorWindow.swift)
 └── Notlarim/            # Notlarım kodu (Models, Store, Services, ViewModel, Views, Support)
 Tests/PlanTests/      # Notlarım depolama katmanı testleri
 ```

@@ -79,7 +79,6 @@ struct ContentView: View {
             // Çubuk ekranın altında sabit: arama kutusu en altta, sonuçlar ondan yukarı doğru dizilir
             // (panel sağ alt köşe sabit kalıp yukarı büyür).
             if !qs.running && !trimmed.isEmpty { searchResults }
-            if qs.running { syncRow }
             if !status.isEmpty { Text(status).font(.footnote).foregroundStyle(dim) }
             bar
         }
@@ -99,9 +98,9 @@ struct ContentView: View {
 
     // MARK: Üst çubuk
     private var bar: some View {
-        // Paylaşım açıkken arama kutusu kaybolur; yerine cihaza gönderme seçenekleri gelir (düğmeler üst satırda hizalı).
+        // Paylaşım açıkken arama kutusu kaybolur; yerine cihaza gönderme seçenekleri gelir (düğmeler en alt satırda hizalı; liste yukarı doğru uzar).
         let rowH: CGFloat? = qs.running ? 38 : nil
-        return HStack(alignment: qs.running ? .top : .center, spacing: 8) {
+        return HStack(alignment: qs.running ? .bottom : .center, spacing: 8) {
             // Hızlı Paylaş: dokun = aç/kapat. Açıkken ikon açık mavi "ON" olur. (Basılı tutarak klasör açma kaldırıldı.)
             shareButton
                 .contentShape(Circle())
@@ -123,26 +122,22 @@ struct ContentView: View {
             Button { NotesWindow.toggle() } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help("Notlarım (aç/kapat)")
                 .frame(height: rowH)
-            // Kapat: uygulamayı tamamen kapatır
-            Button { NSApp.terminate(nil) } label: { circle("xmark") }
-                .buttonStyle(.plain).help(L("Uygulamayı kapat", "Quit app"))
-                .frame(height: rowH)
+            // Eşitle ⇄: eski çıkış (çarpı) düğmesinin yerinde; yalnızca paylaşım açıkken görünür
+            if qs.running {
+                syncButton.frame(height: rowH)
+            }
         }
     }
 
-    // MARK: Paylaşım açılınca cihaz listesinin altında, "ON" simgesinin tam üstünde: Eşitle ⇄
-    // Link klasörünü açık cihazlarla eşitler. Pencerede cihazlar işaretlenir, eşitleme yöntemi seçilir.
-    private var syncRow: some View {
-        HStack(spacing: 0) {
-            Button { syncOpen.toggle() } label: {
-                if qs.syncing { circleView(size: onSize) { ProgressView().controlSize(.small) } }
-                else { circle("arrow.triangle.2.circlepath", size: onSize) }
-            }
-            .buttonStyle(.plain).disabled(qs.syncing)
-            .help(L("Cihazlarla eşitle (Link klasörü)", "Sync with devices (Link folder)"))
-            .popover(isPresented: $syncOpen, arrowEdge: .top) { syncPopover }
-            Spacer(minLength: 0)
+    // MARK: Eşitle ⇄ — Link klasörünü açık cihazlarla eşitler. Pencerede cihazlar işaretlenir, eşitleme yöntemi seçilir.
+    private var syncButton: some View {
+        Button { syncOpen.toggle() } label: {
+            if qs.syncing { circleView { ProgressView().controlSize(.small) } }
+            else { circle("arrow.triangle.2.circlepath") }
         }
+        .buttonStyle(.plain).disabled(qs.syncing)
+        .help(L("Cihazlarla eşitle (Link klasörü)", "Sync with devices (Link folder)"))
+        .popover(isPresented: $syncOpen, arrowEdge: .top) { syncPopover }
     }
 
     @ViewBuilder private var shareButton: some View {
@@ -159,13 +154,15 @@ struct ContentView: View {
     // Üstteki ve alttaki yazı aynı görünümde (aynı boy, renk) ve sola hizalı.
     private var devicesList: some View {
         VStack(alignment: .leading, spacing: 0) {
+            infoLine
             if qs.devices.isEmpty {
                 Text("Açık cihaz aranıyor…").font(.system(size: 15)).foregroundStyle(.white)
                     .lineLimit(1)
                     .padding(.horizontal, 14)
                     .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
             } else {
-                ForEach(qs.devices) { d in
+                // Cihaz sayısı arttıkça liste yukarı uzar: ilk cihaz en altta (düğmelerle aynı satırda)
+                ForEach(Array(qs.devices.reversed())) { d in
                     HStack(spacing: 8) {
                         Text(d.name).font(.system(size: 15)).foregroundStyle(.white).lineLimit(1)
                         Spacer(minLength: 4)
@@ -180,7 +177,6 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
                 }
             }
-            infoLine
         }
         .background(RoundedRectangle(cornerRadius: 19).fill(idleBG))
     }
@@ -213,7 +209,6 @@ struct ContentView: View {
     @ViewBuilder private var infoLine: some View {
         if let i = qs.info {
             VStack(spacing: 0) {
-                Divider().overlay(Color.white.opacity(0.1)).padding(.horizontal, 8)
                 Text(i.text)
                     .font(.system(size: 15)).foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
                     .padding(.horizontal, 14)
@@ -221,6 +216,7 @@ struct ContentView: View {
                     .contentShape(Rectangle())
                     .onTapGesture { if let f = i.folder { NSWorkspace.shared.open(f) } }     // "Alındı" satırı: kayıt klasörünü aç
                     .help(i.folder != nil ? "Kayıt klasörünü aç" : "")
+                Divider().overlay(Color.white.opacity(0.1)).padding(.horizontal, 8)
             }
         }
     }

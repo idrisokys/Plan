@@ -78,8 +78,8 @@ struct ContentView: View {
         VStack(spacing: 6) {
             // Çubuk ekranın altında sabit: arama kutusu en altta, sonuçlar ondan yukarı doğru dizilir
             // (panel sağ alt köşe sabit kalıp yukarı büyür).
-            if !trimmed.isEmpty { searchResults }
-            if qs.running { devicesList; syncRow }
+            if !qs.running && !trimmed.isEmpty { searchResults }
+            if qs.running { syncRow }
             if !status.isEmpty { Text(status).font(.footnote).foregroundStyle(dim) }
             bar
         }
@@ -93,30 +93,40 @@ struct ContentView: View {
             if e != engines { engines = e }          // panel ve sabit çubuk aynı arama motorlarını gösterir
         }
         .onChange(of: text) { _ in search() }
+        .onChange(of: qs.running) { on in if !on { focused = true } }     // paylaşım kapanınca arama kutusu geri gelir
         .onReceive(qs.$message) { if !$0.isEmpty { flash($0) } }
     }
 
     // MARK: Üst çubuk
     private var bar: some View {
-        HStack(spacing: 8) {
+        // Paylaşım açıkken arama kutusu kaybolur; yerine cihaza gönderme seçenekleri gelir (düğmeler üst satırda hizalı).
+        let rowH: CGFloat? = qs.running ? 38 : nil
+        return HStack(alignment: qs.running ? .top : .center, spacing: 8) {
             // Hızlı Paylaş: dokun = aç/kapat. Açıkken ikon açık mavi "ON" olur. (Basılı tutarak klasör açma kaldırıldı.)
             shareButton
                 .contentShape(Circle())
                 .onTapGesture { qs.toggle() }
                 .help("Hızlı Paylaş: dokun aç/kapat")
+                .frame(height: rowH)
 
-            TextField("", text: $text, prompt: Text("Ara; Enter ile ekle").foregroundColor(dim))
-                .textFieldStyle(.plain).font(.system(size: 16)).foregroundStyle(.white)
-                .lineLimit(1).focused($focused).onSubmit(submit)
-                .padding(.horizontal, 14).frame(height: 38)
-                .background(Capsule().fill(idleBG))
+            if qs.running {
+                devicesList
+            } else {
+                TextField("", text: $text, prompt: Text("Ara; Enter ile ekle").foregroundColor(dim))
+                    .textFieldStyle(.plain).font(.system(size: 16)).foregroundStyle(.white)
+                    .lineLimit(1).focused($focused).onSubmit(submit)
+                    .padding(.horizontal, 14).frame(height: 38)
+                    .background(Capsule().fill(idleBG))
+            }
 
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
             Button { NotesWindow.toggle() } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help("Notlarım (aç/kapat)")
+                .frame(height: rowH)
             // Kapat: uygulamayı tamamen kapatır
             Button { NSApp.terminate(nil) } label: { circle("xmark") }
                 .buttonStyle(.plain).help(L("Uygulamayı kapat", "Quit app"))
+                .frame(height: rowH)
         }
     }
 
@@ -137,26 +147,26 @@ struct ContentView: View {
 
     @ViewBuilder private var shareButton: some View {
         if qs.running {
-            Text("ON").font(.system(size: 11, weight: .heavy)).foregroundStyle(onBlue)
+            Text("ON").font(.system(size: 11, weight: .heavy)).foregroundStyle(.white)
                 .frame(width: onSize, height: onSize)
-                .background(Circle().fill(onBlue.opacity(0.18)))
-                .overlay(Circle().stroke(onBlue.opacity(0.8), lineWidth: 1.5))
+                .background(Circle().fill(idleBG))
         } else {
             circle("antenna.radiowaves.left.and.right", size: onSize)
         }
     }
 
-    // MARK: Paylaşım açıkken: o an açık cihazlar, sağında klasör ikonu
+    // MARK: Paylaşım açıkken arama kutusunun yerinde: o an açık cihazlar, sağında klasör ikonu
+    // Üstteki ve alttaki yazı aynı görünümde (aynı boy, renk) ve sola hizalı.
     private var devicesList: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             if qs.devices.isEmpty {
-                Text("Açık cihaz aranıyor…").font(.system(size: 15)).foregroundStyle(dim)
-                    .frame(maxWidth: .infinity, minHeight: 40)
+                Text("Açık cihaz aranıyor…").font(.system(size: 15)).foregroundStyle(.white)
+                    .lineLimit(1)
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
             } else {
                 ForEach(qs.devices) { d in
-                    HStack(spacing: 12) {
-                        Image(systemName: "wifi").font(.system(size: 13)).foregroundStyle(.white)
-                            .frame(width: 30, height: 30).background(Circle().fill(Color.white.opacity(0.12)))
+                    HStack(spacing: 8) {
                         Text(d.name).font(.system(size: 15)).foregroundStyle(.white).lineLimit(1)
                         Spacer(minLength: 4)
                         if qs.sendingTo.contains(d.id) {
@@ -165,13 +175,14 @@ struct ContentView: View {
                             Button { pickAndSend(to: d) } label: { circle("folder", size: 30) }
                                 .buttonStyle(.plain).help("Dosya seç ve gönder")
                         }
-                    }.padding(.horizontal, 8).padding(.vertical, 5)
+                    }
+                    .padding(.leading, 14).padding(.trailing, 4)
+                    .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
                 }
             }
             infoLine
         }
-        .padding(.vertical, 4)
-        .background(RoundedRectangle(cornerRadius: 14).fill(menuBG))
+        .background(RoundedRectangle(cornerRadius: 19).fill(idleBG))
     }
 
     private var syncPopover: some View {
@@ -198,21 +209,19 @@ struct ContentView: View {
         .padding(14).frame(minWidth: 230)
     }
 
-    /// Gönderme / alma bilgisi: bildirim yok, yalnızca paylaşım ekranında tek satır.
-    private var infoLine: some View {
-        let i = qs.info
-        return VStack(spacing: 0) {
-            Divider().overlay(Color.white.opacity(0.1)).padding(.horizontal, 8)
-            HStack(spacing: 8) {
-                Image(systemName: i?.icon ?? "tray.and.arrow.down").font(.system(size: 13)).foregroundStyle(.white)
-                    .frame(width: 30, height: 30).background(Circle().fill(Color.white.opacity(0.12)))
-                Text(i?.text ?? "Gönderilen ve alınan dosyalar burada görünür")
+    /// Gönderme / alma bilgisi: bildirim yok, yalnızca bilgi varken tek satır (açıklama ve simge yok).
+    @ViewBuilder private var infoLine: some View {
+        if let i = qs.info {
+            VStack(spacing: 0) {
+                Divider().overlay(Color.white.opacity(0.1)).padding(.horizontal, 8)
+                Text(i.text)
                     .font(.system(size: 15)).foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
-                Spacer(minLength: 0)
-            }.padding(.horizontal, 8).padding(.vertical, 5)
-            .contentShape(Rectangle())
-            .onTapGesture { if let f = i?.folder { NSWorkspace.shared.open(f) } }     // "Alındı" satırı: kayıt klasörünü aç
-            .help(i?.folder != nil ? "Kayıt klasörünü aç" : "")
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture { if let f = i.folder { NSWorkspace.shared.open(f) } }     // "Alındı" satırı: kayıt klasörünü aç
+                    .help(i.folder != nil ? "Kayıt klasörünü aç" : "")
+            }
         }
     }
 

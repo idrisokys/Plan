@@ -92,25 +92,23 @@ struct MainView: View {
                 .lineLimit(4).truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
             // Üç nokta ve sağındaki boşluk: tek tıkla menü (Sabitle / Düzenle / Taşı / Paylaş / Sil). Sabitlenmiş öğede kırmızı.
-            ZStack(alignment: .leading) {
-                // Simge ayrı çizilir: sabitlenmişse kırmızı, değilse normal renk (menü stili rengi bozamaz)
+            // SwiftUI Menu + saydam etiket macOS'ta tıklamayı almıyordu; menü doğrudan NSMenu ile açılır.
+            Button {
+                RowMenu.show([
+                    (pinLabel, { m.togglePin(targets) }),
+                    (L("Düzenle", "Edit"), { m.beginRename(e) }),
+                    (L("Taşı", "Move"), { m.beginMove(targets) }),
+                    (L("Paylaş", "Share"), { m.shareEntries(targets) }),
+                    (L("Sil", "Delete"), { m.deleteNow(targets) }),
+                ])
+            } label: {
                 MIcon(MI.moreVert)
                     .foregroundStyle(e.pinned ? NT.pinnedRed : NT.onSurface)
                     .padding(.leading, 5)
-                    .allowsHitTesting(false)
-                Menu {
-                    Button(pinLabel) { m.togglePin(targets) }
-                    Button(L("Düzenle", "Edit")) { m.beginRename(e) }
-                    Button(L("Taşı", "Move")) { m.beginMove(targets) }
-                    Button(L("Paylaş", "Share")) { m.shareEntries(targets) }
-                    Button(L("Sil", "Delete")) { m.deleteNow(targets) }
-                } label: {
-                    Color.clear.frame(width: 34 + menuPad, height: 34).contentShape(Rectangle())
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
+                    .frame(width: 34 + menuPad, height: 34, alignment: .leading)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .frame(width: 34 + menuPad, height: 34)
         }
         .padding(.leading, 16)
@@ -128,5 +126,27 @@ struct MainView: View {
             Button(L("Paylaş", "Share")) { m.shareEntries(targets) }
             Button(L("Sil", "Delete")) { m.deleteNow(targets) }
         }
+    }
+}
+
+/// Üç nokta menüsü: tıklanan yerde açılan sistem menüsü (NSMenu).
+@MainActor
+enum RowMenu {
+    private final class Item: NSObject {
+        let run: () -> Void
+        init(_ run: @escaping () -> Void) { self.run = run }
+        @objc func fire() { run() }
+    }
+
+    static func show(_ items: [(String, () -> Void)]) {
+        let menu = NSMenu()
+        let holders = items.map { Item($0.1) }      // menü açıkken hedefler canlı kalsın
+        for (i, it) in items.enumerated() {
+            let mi = NSMenuItem(title: it.0, action: #selector(Item.fire), keyEquivalent: "")
+            mi.target = holders[i]
+            menu.addItem(mi)
+        }
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        withExtendedLifetime(holders) {}
     }
 }

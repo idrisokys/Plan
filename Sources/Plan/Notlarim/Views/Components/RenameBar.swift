@@ -7,7 +7,6 @@ struct RenameBar: View {
     @State private var prevCount = 0
 
     var body: some View {
-        let over = m.renameText.count > m.maxChars
         let canSave = !m.renameText.trimmed.isEmpty
         VStack(alignment: .leading, spacing: 4) {
             ZStack(alignment: .topLeading) {
@@ -42,17 +41,17 @@ struct RenameBar: View {
             }
 
             HStack(spacing: 0) {
-                Text(over ? "\(m.renameText.count)/\(m.maxChars) → .txt" : "\(m.renameText.count)/\(m.maxChars)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(over ? NT.error : NT.onSurface)
-                    .padding(.leading, 8)
                 EditModeButton()
                 BottomIcons()
                 Spacer()
                 IconBtn(MI.paste, help: L("Yapıştır", "Paste")) { m.pasteIntoRename() }
-                IconBtn(MI.save, tint: canSave ? NT.primary : NT.onSurface, help: L("Kaydet (⌘S)", "Save (⌘S)")) { m.saveRename() }
+                // Kaydet simgesi kaldırıldı; ⌘S ve Enter ile kaydetme çalışmaya devam eder.
+                Button("") { m.saveRename() }
                     .keyboardShortcut("s", modifiers: .command)
                     .disabled(!canSave)
+                    .frame(width: 0, height: 0)
+                    .opacity(0)
+                    .accessibilityHidden(true)
                 if !m.inlineRename { MoveButtons() }
             }
         }

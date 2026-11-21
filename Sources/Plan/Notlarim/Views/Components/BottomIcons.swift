@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Eskiden üst satırda duran simgeler: geri, klasör, yenile, çöp, her zaman üstte.
+/// Eskiden üst satırda duran simgeler: geri, klasör, yenile, çöp.
 /// Alt çubukta soldaki halka düğmesinin sağına, soldan sağa sıralanır.
 struct BottomIcons: View {
     @EnvironmentObject var m: NotesModel
@@ -18,7 +18,6 @@ struct BottomIcons: View {
                 // Çöp: seçilenleri hızlıca .onemsiz klasörüne taşır
                 IconBtn(MI.delete, help: L("Seçilenleri .onemsiz klasörüne taşı", "Move selected to .onemsiz")) { m.trashSelected() }
             }
-            PinWindowButton(box: 34)
         }
     }
 }

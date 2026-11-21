@@ -12,7 +12,8 @@ struct PlanApp: App {
         Window(L("Notlarım", "My Notes"), id: NotesWindow.id) {
             NotesRoot().environmentObject(notes)
         }
-        .defaultSize(width: 400, height: 600)
+        .defaultSize(width: 350, height: 650)
+        .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .newItem) { }
             CommandMenu(L("Notlarım", "My Notes")) {

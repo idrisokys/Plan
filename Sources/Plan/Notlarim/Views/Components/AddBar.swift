@@ -1,13 +1,12 @@
 import SwiftUI
 import AppKit
 
-/// Android'deki alt ekleme çubuğu: çerçeveli metin alanı; altta sayaç, düzenleme (halka) düğmesi, ara / temizle / yapıştır.
+/// Android'deki alt ekleme çubuğu: çerçeveli metin alanı; altta düzenleme (halka) düğmesi, ara / temizle / yapıştır.
 struct AddBar: View {
     @EnvironmentObject var m: NotesModel
 
     var body: some View {
         let canAdd = !m.linkText.trimmed.isEmpty
-        let over = m.linkText.count > m.addMax
         VStack(alignment: .leading, spacing: 4) {
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $m.linkText)
@@ -24,23 +23,11 @@ struct AddBar: View {
                         }
                         m.prevLinkCount = m.linkText.count
                     }
-                if m.linkText.isEmpty {
-                    Text(L("Link veya metin yapıştır (Enter: kaydet)", "Paste a link or text (Enter: save)"))
-                        .font(.system(size: m.fontSize))
-                        .foregroundStyle(NT.onSurfaceVariant)
-                        .padding(.horizontal, 17)
-                        .padding(.vertical, 14)
-                        .allowsHitTesting(false)
-                }
             }
             .frame(height: m.editorHeight(for: m.linkText))
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(NT.outline, lineWidth: 1))
 
             HStack(spacing: 0) {
-                Text("\(m.linkText.count)/\(m.addMax)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(over ? NT.error : NT.onSurface)
-                    .padding(.leading, 8)
                 EditModeButton()
                 BottomIcons()
                 Spacer()

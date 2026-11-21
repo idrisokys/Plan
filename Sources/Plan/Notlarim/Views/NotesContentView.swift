@@ -8,7 +8,7 @@ struct NotesContentView: View {
         Group {
             if m.root == nil { WelcomeView() } else if m.txt != nil { TxtView() } else { MainView() }
         }
-        .frame(minWidth: 280, minHeight: 360)
+        .frame(width: 350, height: 650)
         .background(NT.bg)
         .preferredColorScheme(.dark)   // Android Notlarım ekranı gibi her zaman koyu
         .background(WindowDock())

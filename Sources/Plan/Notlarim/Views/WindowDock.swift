@@ -27,6 +27,9 @@ struct WindowDock: NSViewRepresentable {
                 w.backgroundColor = NT.bgNS
                 w.titleVisibility = .hidden
                 w.title = ""                  // "Notlarım" başlığı gösterilmez
+                // Üst satır içeriğin parçası (TitleBarRow): başlık çubuğu saydam, içerik onun altına uzanır
+                w.titlebarAppearsTransparent = true
+                w.styleMask.insert(.fullSizeContentView)
                 w.setContentSize(WindowDock.size)
                 guard let scr = w.screen ?? NSScreen.main else { return }
                 let vf = scr.visibleFrame

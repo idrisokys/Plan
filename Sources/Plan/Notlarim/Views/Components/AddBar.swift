@@ -42,6 +42,7 @@ struct AddBar: View {
                     .foregroundStyle(over ? NT.error : NT.onSurface)
                     .padding(.leading, 8)
                 EditModeButton()
+                BottomIcons()
                 Spacer()
                 IconBtn(MI.search, help: L("Ara", "Search")) { m.startSearch() }
                     .disabled(!canAdd)

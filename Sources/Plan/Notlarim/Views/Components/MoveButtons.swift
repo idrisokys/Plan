@@ -29,6 +29,7 @@ struct MultiBar: View {
                 .foregroundStyle(NT.onSurface)
                 .padding(.leading, 8)
             EditModeButton()
+            BottomIcons()
             Spacer()
             MoveButtons()
         }

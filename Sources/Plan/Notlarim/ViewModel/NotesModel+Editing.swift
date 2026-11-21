@@ -47,9 +47,9 @@ extension NotesModel {
 
     /// ⋮ → "Düzenle": yalnızca bu satırın adını alttaki alanda düzenler (seçim modu açılmaz).
     func beginRename(_ e: Entry) {
+        inlineRename = true        // önce açılır: seçim/mod değişimi satırı sıfırlamasın
         editMode = false
         selected = []
-        inlineRename = true
         renaming = e
         renameText = e.title
     }

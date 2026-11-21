@@ -47,6 +47,7 @@ struct RenameBar: View {
                     .foregroundStyle(over ? NT.error : NT.onSurface)
                     .padding(.leading, 8)
                 EditModeButton()
+                BottomIcons()
                 Spacer()
                 IconBtn(MI.paste, help: L("Yapıştır", "Paste")) { m.pasteIntoRename() }
                 IconBtn(MI.save, tint: canSave ? NT.primary : NT.onSurface, help: L("Kaydet (⌘S)", "Save (⌘S)")) { m.saveRename() }

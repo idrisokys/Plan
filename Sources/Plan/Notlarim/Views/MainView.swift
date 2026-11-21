@@ -9,20 +9,8 @@ struct MainView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Tüm simgeler tek sırada, soldan sağa; pencere daralınca da kaybolmaz.
+            // Simgeler alt çubukta (soldaki halka düğmesinin sağında); üstte yalnızca trafik ışıkları yeri ve varsa kısa bilgi.
             TitleBarRow {
-                if m.searchQuery != nil {
-                    IconBtn(MI.arrowBack, help: L("Aramadan çık", "Exit search"), box: ToolbarMetrics.box) { m.exitSearch(true) }
-                } else if !m.stack.isEmpty {
-                    IconBtn(MI.arrowBack, help: L("Geri", "Back"), box: ToolbarMetrics.box) { m.goBack() }
-                }
-                if m.searchQuery == nil {
-                    IconBtn(MI.createNewFolder, help: L("Klasör", "Folder"), box: ToolbarMetrics.box) { m.sheet = .folder }
-                    IconBtn(MI.refresh, help: L("Yenile (⌘R)", "Refresh (⌘R)"), box: ToolbarMetrics.box) { m.refresh() }
-                    // Çöp: seçilenleri hızlıca .onemsiz klasörüne taşır
-                    IconBtn(MI.delete, help: L("Seçilenleri .onemsiz klasörüne taşı", "Move selected to .onemsiz"), box: ToolbarMetrics.box) { m.trashSelected() }
-                }
-                PinWindowButton()
                 // Başlık yok; yalnızca arama sonucu ya da seçili sayısı varsa kısa bilgi gösterilir.
                 if !m.title.isEmpty {
                     Text(m.title)

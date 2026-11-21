@@ -209,12 +209,13 @@ struct IconBtn: View {
 /// Sağ üstteki "her zaman üstte" raptiyesi; araç çubuğunda diğer simgelerle aynı sıraya girer.
 struct PinWindowButton: View {
     @EnvironmentObject var m: NotesModel
+    var box: CGFloat = ToolbarMetrics.box
     var body: some View {
         IconBtn(MI.pin, tint: m.alwaysOnTop ? NT.primary : NT.onSurfaceVariant.opacity(0.7),
                 help: m.alwaysOnTop
                     ? L("Her zaman üstte: açık (kapatmak için tıkla)", "Always on top: on (click to turn off)")
                     : L("Her zaman üstte: kapalı (açmak için tıkla)", "Always on top: off (click to turn on)"),
-                box: ToolbarMetrics.box) {
+                box: box) {
             m.alwaysOnTop.toggle()
         }
     }

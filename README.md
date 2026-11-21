@@ -45,7 +45,7 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere vars
 ```
 Package.swift            # Plan (uygulama) + PlanTests
 Info.plist, version.env  # Tek Info.plist; sürüm numarası version.env'de
-build.sh                 # Plan.app + Plan-macOS.zip (evrensel, ad-hoc imzalı)
+build.sh                 # Plan.app + Plan-macOS.zip (yalnızca Apple Silicon / arm64, ad-hoc imzalı)
 scripts/build_share.sh   # Paylaş eklentisini derler (build.sh çağırır)
 ShareExtension/          # Safari/Paylaş menüsü eklentisi (ayrı derlenir)
 chrome-extension/        # Chrome eklentisi (uygulamanın içine konur)

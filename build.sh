@@ -8,9 +8,9 @@ source version.env
 APP=Plan.app
 PLISTBUDDY=/usr/libexec/PlistBuddy
 
-# Evrensel (Apple Silicon + Intel) derleme
-swift build -c release --arch arm64 --arch x86_64
-BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/Plan"
+# Yalnızca Apple Silicon (arm64) derleme
+swift build -c release --arch arm64
+BIN="$(swift build -c release --arch arm64 --show-bin-path)/Plan"
 
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Plan"

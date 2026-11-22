@@ -62,9 +62,25 @@ Tests/PlanTests/      # Notlarım depolama katmanı testleri
 Notlarım kodundaki çakışan adlar yeniden adlandırıldı: `Store` → `NotesStore`, `Model` → `NotesModel`,
 `ContentView` → `NotesContentView`.
 
+## Rust çekirdeği (CPU yoğun işler)
+
+Arayüze dokunulmadan, ağır işler `rust/plan_core` içinde (yalnızca std, bağımlılıksız) çalışır ve Swift'e
+C ABI ile bağlanır (`Sources/CPlanCore/include/plan_core.h` → `Support/RustCore.swift`):
+
+| İş | Rust modülü | Swift'te kullanım |
+|---|---|---|
+| Arama motoru (dosya okuma, eşleştirme, özet, sıralama; paralel) | `search.rs`, `fold.rs` | `NotesStore.search` / `searchAsync` (panel ve Notlarım) |
+| Türkçe/aksan duyarsız sadeleştirme | `fold.rs` | `NotesStore.fold` |
+| Dosya tarama (paralel, katman katman) | `scan.rs` | `RustCore.scan` |
+| Dosya analizi: SHA-256 + metadata (paralel) | `hash.rs` | `RustCore.analyze` |
+| Görsel işleme: küçük resim / toplu küçültme | `image.rs` | `RustCore.thumbnail` |
+
+Rust testleri: `cd rust/plan_core && cargo test`.
+
 ## Derleme
 
 ```bash
-./build.sh            # Xcode veya Command Line Tools gerekir
+./build.sh            # Xcode/Command Line Tools + Rust (rustup) gerekir; Rust'ı da kendisi derler
+scripts/build_rust.sh # yalnızca Rust çekirdeği (swift build / swift test'ten ÖNCE bir kez)
 swift test            # birim testleri
 ```

@@ -3,3 +3,4 @@ build/
 Plan.app/
 Plan-macOS.zip
 .DS_Store
+rust/plan_core/target/

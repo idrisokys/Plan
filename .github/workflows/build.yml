@@ -33,6 +33,14 @@ jobs:
           echo "--- Package.swift (gizli karakterler dahil)"; cat -etv Package.swift || true
           echo "--- git'te izlenen dosyalar"; git ls-files | head -60
 
+      - name: Rust çekirdeği testleri
+        run: |
+          chmod +x scripts/build_rust.sh
+          (cd rust/plan_core && cargo test --release)
+
+      - name: Rust çekirdeğini derle
+        run: ./scripts/build_rust.sh
+
       - name: Birim testleri (Notlarım depolama katmanı)
         run: swift test
 

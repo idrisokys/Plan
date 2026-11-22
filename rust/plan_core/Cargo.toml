@@ -5,8 +5,10 @@ edition = "2021"
 description = "Plan uygulamasının CPU yoğun işleri: tarama, arama, hash/metadata, küçük resim"
 publish = false
 
-# Bağımlılık yok: yalnızca std. Böylece çevrimdışı derlenir ve CI'da ek kurulum gerekmez.
+# Dış (crates.io) bağımlılık yok: yalnızca std + yerel `qshare_core`. Böylece çevrimdışı derlenir.
+# Paylaşım/eşitleme protokolü ve Unicode (NFC/NFD) Android'le ORTAK olan qshare_core'dadır.
 [dependencies]
+qshare_core = { path = "../../qshare_core" }
 
 [lib]
 name = "plan_core"

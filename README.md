@@ -64,30 +64,41 @@ Notlarım kodundaki çakışan adlar yeniden adlandırıldı: `Store` → `Notes
 
 ## Rust çekirdeği (CPU yoğun işler)
 
-Arayüze dokunulmadan, ağır işler `rust/plan_core` içinde (yalnızca std, bağımlılıksız) çalışır ve Swift'e
+Arayüze dokunulmadan, ağır işler `rust/plan_core` içinde (yalnızca std; crates.io bağımlılığı yok) çalışır ve Swift'e
 C ABI ile bağlanır (`Sources/CPlanCore/include/plan_core.h` → `Support/RustCore.swift`):
 
 | İş | Rust modülü | Swift'te kullanım |
 |---|---|---|
-| Arama motoru: klasör dolaşımı (`.order.txt`/`.pinned.txt` sırası), dosya okuma, eşleştirme, özet (paralel) | `tree.rs`, `search.rs`, `fold.rs`, `unicode.rs` | `NotesStore.search` / `searchAsync` (panel ve Notlarım) |
+| Arama motoru: klasör dolaşımı (`.order.txt`/`.pinned.txt` sırası), dosya okuma, eşleştirme, özet (paralel) | `tree.rs`, `search.rs`, `fold.rs`, `unicode.rs` (ortak: `qshare_core`) | `NotesStore.search` / `searchAsync` (panel ve Notlarım) |
 | Türkçe/aksan duyarsız sadeleştirme | `fold.rs` | `NotesStore.fold` |
 | Dosya tarama (paralel, katman katman) | `scan.rs` | `RustCore.scan` |
 | Dosya analizi: SHA-256 + metadata (paralel) | `hash.rs` | `RustCore.analyze` |
 | Görsel işleme: küçük resim / toplu küçültme | `image.rs` | `RustCore.thumbnail` |
-| Hızlı Paylaş alma sunucusu (`POST /u`, `GET /m`, `GET /f`, `DELETE /x`, `POST /d`), ad temizleme, `.part` → son ad | `share/server.rs`, `share/proto.rs` | `RustShare.Server` (`QuickShare.start`) |
-| Dosya/klasör gönderme (klasör → `ditto` ile zip) | `share/client.rs` | `RustShare.send` (`QuickShare.send`) |
-| Notlarım eşitleme: manifesto, 3 mod, güvenli yol çözümleme, paralel toplu aktarım | `share/sync.rs`, `share/proto.rs` | `RustShare.sync`, `NoteSync.resolve` |
+| Hızlı Paylaş alma sunucusu (`POST /u`, `GET /m`, `GET /f`, `DELETE /x`, `POST /d`), ad temizleme, `.part` → son ad | `qshare_core/src/share/server.rs`, `proto.rs` | `RustShare.Server` (`QuickShare.start`) |
+| Dosya/klasör gönderme (klasör → `ditto` ile zip) | `qshare_core/src/share/client.rs` | `RustShare.send` (`QuickShare.send`) |
+| Notlarım eşitleme: manifesto, 3 mod, güvenli yol çözümleme, paralel toplu aktarım | `qshare_core/src/share/sync.rs`, `proto.rs` | `RustShare.sync`, `NoteSync.resolve` |
 
 **Hız tasarımı:** eşitleme önce tam bir plan çıkarır (gönder/al/klasör/sil); karşı cihaz `X-Plan-Proto: 2` bildirirse
 dosyalar ~8 MiB / 512 dosyalık paketlere bölünüp en çok 4 paralel bağlantıda tek akışla taşınır (`POST /b`, `POST /g`;
-`share/bundle.rs`), yerel tarama ile karşı manifesto indirme eşzamanlıdır. Android gibi eski cihazlarda dosya başına
+`qshare_core/src/share/bundle.rs`), yerel tarama ile karşı manifesto indirme eşzamanlıdır. Android gibi eski cihazlarda dosya başına
 isteklere (paralel) geri dönülür. Çoklu dosya gönderme de 4 bağlantıyla paralel gider.
 
 Bonjour yayını/keşfi (`_qshare._tcp`: `NetService` + `NWBrowser`) ve arayüz Swift'te kalır; Swift bulunan cihazı `ip:port`
 olarak Rust'a verir (`QuickShare.resolveAddress`). Rust tarafı da `cargo test` içinde 127.0.0.1 üzerinden uçtan uca denenir
-(`rust/plan_core/tests/share_loopback.rs`).
+(`qshare_core/tests/share_loopback.rs`).
 
-Rust testleri: `cd rust/plan_core && cargo test`. Unicode tabloları `tools/gen_unicode.py` ile üretilir.
+### Android'le ortak çekirdek: `qshare_core/`
+
+Paylaşım protokolü, alma sunucusu, dosya gönderme, klasör eşitleme ve Unicode (NFC/NFD) kodu **Android uygulaması
+(MyLauncher) ile aynı** `qshare_core` crate'indedir; iki projede ayrı ayrı bakımı yapılan kopyalar kalmadı. Platforma
+özgü farklar yapılandırmayla seçilir (`Config`, `Scope`); Plan varsayılanları kullanır (`Scope::link`: kalıcı silme,
+gizli klasörler atlanır, `ad (2).uzantı`). `plan_qs_*` C ABI'si değişmedi, Swift tarafına dokunmak gerekmedi.
+
+`qshare_core` iki repoda aynı dizinde (`qshare_core/`) durur. Tek kaynaktan yönetmek için git submodule yapılabilir:
+`git submodule add <qshare_core-repo-adresi> qshare_core` (CI'da `actions/checkout` adımına `submodules: true` eklenir).
+
+Testler: `cd qshare_core && cargo test` (protokol, eşitleme) ve `cd rust/plan_core && cargo test` (arama, tarama, hash, resim).
+Unicode tabloları `qshare_core/tools/gen_unicode.py` ile üretilir.
 
 ## Derleme
 

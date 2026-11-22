@@ -136,6 +136,58 @@ fn send_file_inner(addr: &str, path: &Path, progress: &mut dyn FnMut(u64, u64)) 
     Ok(h.status() == 200)
 }
 
+/// `send_reader` sonucu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SendStatus {
+    Ok = 0,
+    /// Bağlanılamadı (veri gönderilmedi; yeniden denemek güvenli)
+    Connect = 1,
+    /// Kaynak bildirilen uzunluktan kısa çıktı
+    Short = 2,
+    /// Karşı cihaz `200` dönmedi
+    Refused = 3,
+    /// Gönderim sırasında G/Ç hatası
+    Io = 4,
+}
+
+/// Android: açık bir okuyucudan (ör. `ContentResolver` dosya tanıtıcısı) tek dosya gönderir.
+/// `len` bayt okunup `POST /u` ile yollanır; `progress(gönderilen, toplam)` her parçadan sonra çağrılır.
+pub fn send_reader(addr: &str, name: &str, len: u64, src: &mut dyn Read, progress: &mut dyn FnMut(u64, u64)) -> SendStatus {
+    let mut c = match Conn::connect(addr) {
+        Ok(c) => c,
+        Err(_) => return SendStatus::Connect,
+    };
+    let head = format!(
+        "POST /u HTTP/1.1\r\nHost: qs\r\nX-Name: {}\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        enc(name),
+        len
+    );
+    if c.send(head.as_bytes()).is_err() {
+        return SendStatus::Io;
+    }
+    let mut chunk = vec![0u8; 1 << 20];
+    let mut sent = 0u64;
+    while sent < len {
+        let want = ((len - sent) as usize).min(chunk.len());
+        let n = match src.read(&mut chunk[..want]) {
+            Ok(n) => n,
+            Err(_) => return SendStatus::Io,
+        };
+        if n == 0 {
+            return SendStatus::Short; // kaynak gönderim sırasında küçüldü; alıcıyı 30 sn bekletme
+        }
+        if c.send(&chunk[..n]).is_err() {
+            return SendStatus::Io;
+        }
+        sent += n as u64;
+        progress(sent, len);
+    }
+    match c.read_head() {
+        Ok(h) if h.status() == 200 => SendStatus::Ok,
+        _ => SendStatus::Refused,
+    }
+}
+
 /// Klasörü geçici bir dizine `<ad>.zip` olarak sıkıştırır (macOS `ditto`). Dönüş: (geçici dizin, zip yolu).
 pub fn zip_folder(dir: &Path) -> Option<(PathBuf, PathBuf)> {
     let tmp = std::env::temp_dir().join(format!("qs-{}", rand8()));

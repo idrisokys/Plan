@@ -5,3 +5,10 @@ version = 4
 [[package]]
 name = "plan_core"
 version = "0.1.0"
+dependencies = [
+ "qshare_core",
+]
+
+[[package]]
+name = "qshare_core"
+version = "0.1.0"

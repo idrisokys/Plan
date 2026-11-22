@@ -175,9 +175,42 @@ fn canon_lenient(p: &Path) -> PathBuf {
     }
 }
 
+/// Android `NoteSync.isNoteName`: Link'te yalnızca `.url`/`.txt`; Download'da (`dl`) gizli ya da geçici olmayan her dosya.
+pub fn is_sync_name(n: &str, dl: bool) -> bool {
+    if !dl {
+        return is_note_name(n);
+    }
+    let l = n.to_lowercase();
+    !n.starts_with('.')
+        && !n.chars().any(|c| (c as u32) < 32 || ":*?\"<>|\\".contains(c))
+        && !l.ends_with(".part")
+        && !l.ends_with(".tmp")
+        && !l.ends_with(".crdownload")
+}
+
+/// Android `uniqueFile`: aynı adlı dosya varsa `ad_1.uzantı`, `ad_2.uzantı`… üretir.
+pub fn unique_us(dir: &Path, name: &str) -> PathBuf {
+    let mut t = dir.join(name);
+    let (base, ext) = match name.rfind('.') {
+        Some(i) => (&name[..i], &name[i..]),
+        None => (name, ""),
+    };
+    let mut n = 1;
+    while t.exists() || t.symlink_metadata().is_ok() {
+        t = dir.join(format!("{base}_{n}{ext}"));
+        n += 1;
+    }
+    t
+}
+
 /// Karşı taraftan gelen göreli yolu Link klasörü içinde güvenli bir yola çevirir; geçersizse `None`.
 /// Her bölüm ayrı doğrulanır (`..`, kontrol karakterleri yok), sonuç Link dışına çıkamaz.
 pub fn resolve(rel: &str, root: &Path, dir: bool) -> Option<PathBuf> {
+    resolve_scoped(rel, root, dir, false)
+}
+
+/// `resolve`'un Download (`dl`) kipini de bilen sürümü.
+pub fn resolve_scoped(rel: &str, root: &Path, dir: bool, dl: bool) -> Option<PathBuf> {
     let segs: Vec<&str> = rel.split('/').collect();
     if segs.is_empty() || segs.len() > MAX_DEPTH {
         return None;
@@ -192,7 +225,7 @@ pub fn resolve(rel: &str, root: &Path, dir: bool) -> Option<PathBuf> {
     }
     if !dir {
         let last = segs.last()?;
-        if !(is_note_name(last) || *last == ".order.txt") {
+        if !(is_sync_name(last, dl) || (!dl && *last == ".order.txt")) {
             return None;
         }
     }

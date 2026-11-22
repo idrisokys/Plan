@@ -5,8 +5,9 @@
 //! * `scan`   – dizin ağacını paralel tarama
 //! * `hash`   – SHA-256 ve dosya metadata'sı
 //! * `image`  – RGBA küçük resim (alan ortalamalı küçültme)
-//! * `share`  – Hızlı Paylaş: alma sunucusu, dosya/klasör gönderme, Notlarım eşitlemesi
-//! * `ffi`    – C ABI (`ffi_share`: paylaşım/eşitleme)
+//! * `share`  – Hızlı Paylaş: alma sunucusu, dosya/klasör gönderme, Notlarım eşitlemesi (`qshare_core::share`, Android'le ORTAK)
+//! * `unicode`– NFC/NFD (`qshare_core::unicode`, Android'le ORTAK)
+//! * `ffi`    – C ABI (`ffi_share`: paylaşım/eşitleme köprüsü)
 
 pub mod ffi;
 pub mod ffi_share;
@@ -15,10 +16,12 @@ pub mod hash;
 pub mod image;
 pub mod scan;
 pub mod search;
-pub mod share;
 pub mod tree;
-pub mod unicode;
-mod unicode_tables;
+
+// Paylaşım/eşitleme ve Unicode, Android'le paylaşılan `qshare_core` crate'inden gelir; yollar (`crate::share`,
+// `crate::unicode`) eskisi gibi çalışsın diye yeniden dışa aktarılır.
+pub use qshare_core::share;
+pub use qshare_core::unicode;
 
 /// Paralel işler için iş parçacığı sayısı.
 pub(crate) fn workers() -> usize {

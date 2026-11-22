@@ -8,7 +8,7 @@
 
 use super::proto::*;
 use super::bundle;
-use super::sync::{manifest_body, remove_any, Item};
+use super::sync::{manifest_body, ms, Item, Scope};
 use std::fs::{self, File};
 use std::io::{self, BufWriter, ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -28,18 +28,43 @@ pub enum Event {
     Failed(String),
     /// Eşitleme `~/Link` içeriğini değiştirdi
     NotesChanged,
+    /// Bir bağlantı işlenmeye başladı (`true`) / bitti (`false`): Android'de Wi-Fi/CPU kilidi tutmak için
+    Busy(bool),
 }
 
 pub type Sink = Arc<dyn Fn(Event) + Send + Sync>;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Config {
     /// Düz dosyaların kaydedildiği klasör (varsayılan: İndirilenler)
     pub recv_dir: PathBuf,
     /// `~/Link` (eşitleme için); `None` ise eşitleme uç noktaları 500 döner
     pub link_root: Option<PathBuf>,
-    /// Yalnızca test için: protokol 2'yi gizler (eski Android gibi davranır)
+    /// Protokol 2'yi gizler (eski Android gibi davranır; Android sunucusu bunu `true` kullanır)
     pub legacy_only: bool,
+    /// Android: Download eşitleme klasörü (`X-Root: dl` istekleri); `None` ise Download eşitlemesi kapalıdır
+    pub dl_root: Option<PathBuf>,
+    /// Android: silinen öğelerin taşındığı klasör (`.onemsiz`); `None` ise silme kalıcıdır
+    pub trash: Option<PathBuf>,
+    /// Android: aynı adlı alınan dosya `ad_1.uzantı` olarak kaydedilir (Plan'da `ad (2).uzantı`)
+    pub android_names: bool,
+    /// Android: Link klasöründeki gizli (`.` ile başlayan) klasörler de eşitlenir. Plan'da (varsayılan `false`) atlanır.
+    /// Download kapsamında gizli klasörler her zaman atlanır.
+    pub link_hidden_dirs: bool,
+}
+
+fn scope_for(cfg: &Config, dl: bool) -> Option<Scope> {
+    let root = if dl { cfg.dl_root.clone() } else { cfg.link_root.clone() }?;
+    Some(Scope { root, dl, trash: cfg.trash.clone(), skip_hidden_dirs: dl || !cfg.link_hidden_dirs })
+}
+
+/// Bağlantı işlenirken `Event::Busy(true)` ... `Event::Busy(false)` çiftini her çıkış yolunda garanti eder.
+struct BusyGuard<'a>(&'a Sink);
+
+impl Drop for BusyGuard<'_> {
+    fn drop(&mut self) {
+        (self.0)(Event::Busy(false));
+    }
 }
 
 pub struct Server {
@@ -123,6 +148,8 @@ fn reply(st: &mut TcpStream, status: &str) {
 }
 
 fn handle(mut st: TcpStream, cfg: &Config, sink: &Sink) {
+    sink(Event::Busy(true));
+    let _busy = BusyGuard(sink);
     let _ = st.set_read_timeout(Some(Duration::from_secs(30)));
     let _ = st.set_write_timeout(Some(Duration::from_secs(30)));
     let mut buf: Vec<u8> = Vec::new();
@@ -148,10 +175,11 @@ fn handle(mut st: TcpStream, cfg: &Config, sink: &Sink) {
     let name = head.header("x-name").map(dec).unwrap_or_else(|| "file".to_string());
     let sync = head.header("x-sync") == Some("1");
     let is_dir = head.header("x-dir") == Some("1");
-    let mtime: i64 = head.header("x-mtime").and_then(|v| v.parse().ok()).unwrap_or(-1);
+    let mtime: i64 = head.header("x-mtime").and_then(|v| v.parse().ok()).map(ms).unwrap_or(-1);
+    let dl = head.header("x-root") == Some("dl");
 
     // Protokol 2: toplu aktarım
-    if !cfg.legacy_only && method == "POST" && (target == "/b" || target == "/g") {
+    if !cfg.legacy_only && !dl && method == "POST" && (target == "/b" || target == "/g") {
         serve_bundle(&mut st, cfg, sink, &target, rest, len, &mut tmp);
         return;
     }
@@ -161,7 +189,7 @@ fn handle(mut st: TcpStream, cfg: &Config, sink: &Sink) {
         || (method == "DELETE" && target == "/x")
         || (method == "POST" && target == "/d")
     {
-        serve_sync(&mut st, cfg, sink, &target, &name, is_dir);
+        serve_sync(&mut st, cfg, sink, &target, &name, is_dir, dl);
         return;
     }
     if method != "POST" || target != "/u" || len < 0 {
@@ -171,9 +199,9 @@ fn handle(mut st: TcpStream, cfg: &Config, sink: &Sink) {
 
     // Hedef: eşitlemede Link içindeki göreli yol, aksi halde alma klasörü
     let (save_to, part_name, sync_dest, name) = if sync {
-        let Some(root) = cfg.link_root.as_ref() else { return reply(&mut st, "400 Bad Request") };
-        let Some(dst) = resolve(&name, root, false) else { return reply(&mut st, "400 Bad Request") };
-        let dir = dst.parent().unwrap_or(root).to_path_buf();
+        let Some(sc) = scope_for(cfg, dl) else { return reply(&mut st, "400 Bad Request") };
+        let Some(dst) = sc.resolve(&name, false) else { return reply(&mut st, "400 Bad Request") };
+        let dir = dst.parent().unwrap_or(sc.root.as_path()).to_path_buf();
         let pn = dst.file_name().and_then(|n| n.to_str()).unwrap_or("f").to_string();
         let _ = fs::create_dir_all(&dir);
         (dir, pn.clone(), Some(dst), pn)
@@ -226,7 +254,7 @@ fn handle(mut st: TcpStream, cfg: &Config, sink: &Sink) {
             .is_ok();
         } else {
             drop(f);
-            let dest = unique(&cfg.recv_dir, &name);
+            let dest = if cfg.android_names { unique_us(&cfg.recv_dir, &name) } else { unique(&cfg.recv_dir, &name) };
             if fs::rename(&part, &dest).is_ok() {
                 name = dest.file_name().and_then(|n| n.to_str()).unwrap_or(&name).to_string();
                 folder = dest.parent().map(|p| p.to_path_buf()).unwrap_or(folder);
@@ -248,16 +276,22 @@ fn handle(mut st: TcpStream, cfg: &Config, sink: &Sink) {
     reply(&mut st, if ok { "200 OK" } else { "500 Error" });
 }
 
-/// Eşitleme uç noktaları; hepsi `~/Link` içinde çalışır.
-fn serve_sync(st: &mut TcpStream, cfg: &Config, sink: &Sink, target: &str, name: &str, is_dir: bool) {
-    let Some(root) = cfg.link_root.as_ref() else { return reply(st, "500 Error") };
+/// Eşitleme uç noktaları; `~/Link` (ya da `X-Root: dl` ile Download) içinde çalışır.
+fn serve_sync(st: &mut TcpStream, cfg: &Config, sink: &Sink, target: &str, name: &str, is_dir: bool, dl: bool) {
+    let Some(sc) = scope_for(cfg, dl) else { return reply(st, "500 Error") };
     match target {
         "/m" => {
-            let extra = if cfg.legacy_only { "" } else { "X-Plan-Proto: 2\r\n" };
-            respond(st, "200 OK", extra, manifest_body(root).as_bytes())
+            let extra = if dl {
+                "X-Root: dl\r\n"
+            } else if cfg.legacy_only {
+                ""
+            } else {
+                "X-Plan-Proto: 2\r\n"
+            };
+            respond(st, "200 OK", extra, manifest_body(&sc).as_bytes())
         }
         "/f" => {
-            let Some(path) = resolve(name, root, false) else { return reply(st, "404 Not Found") };
+            let Some(path) = sc.resolve(name, false) else { return reply(st, "404 Not Found") };
             let Ok(mut file) = File::open(&path) else { return reply(st, "404 Not Found") };
             let Ok(md) = file.metadata() else { return reply(st, "404 Not Found") };
             let head = format!(
@@ -271,16 +305,16 @@ fn serve_sync(st: &mut TcpStream, cfg: &Config, sink: &Sink, target: &str, name:
             let _ = st.flush();
         }
         "/x" => {
-            // Kalıcı silme (Link dışına çıkamaz: resolve doğrular)
-            let Some(f) = resolve(name, root, is_dir) else { return reply(st, "500 Error") };
-            let ok = !f.exists() || remove_any(&f).is_ok();
+            // Silme: `trash` varsa .onemsiz'e taşınır (geri alınabilir), yoksa kalıcı (kök dışına çıkamaz: resolve doğrular)
+            let Some(f) = sc.resolve(name, is_dir) else { return reply(st, "500 Error") };
+            let ok = !f.exists() || sc.remove(&f).is_ok();
             if ok {
                 sink(Event::NotesChanged);
             }
             reply(st, if ok { "200 OK" } else { "500 Error" });
         }
         _ => {
-            let Some(d) = resolve(name, root, true) else { return reply(st, "500 Error") };
+            let Some(d) = sc.resolve(name, true) else { return reply(st, "500 Error") };
             let ok = d.is_dir() || fs::create_dir_all(&d).is_ok();
             if ok {
                 sink(Event::NotesChanged);

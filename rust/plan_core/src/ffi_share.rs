@@ -67,10 +67,12 @@ pub unsafe extern "C" fn plan_qs_server_start(
                     }
                     Event::Failed(n) => f(c, 3, n.as_ptr(), n.len(), none, 0),
                     Event::NotesChanged => f(c, 4, none, 0, none, 0),
+                    // Android'e özgü (Wi-Fi/CPU kilidi); macOS'ta karşılığı yok
+                    Event::Busy(_) => {}
                 }
             }
         });
-        match Server::start(Config { recv_dir: recv, link_root: link, legacy_only: false }, port, sink) {
+        match Server::start(Config { recv_dir: recv, link_root: link, ..Default::default() }, port, sink) {
             Ok(s) => {
                 if !out_port.is_null() {
                     *out_port = s.port();
@@ -136,8 +138,10 @@ pub unsafe extern "C" fn plan_qs_sync(
     let root = if link_len == 0 { None } else { Some(PathBuf::from(string(link_root, link_len))) };
     let Some(list) = str_list(bytes(peers, peers_len)) else { return std::ptr::null_mut() };
     let targets: Vec<sync::Peer> = list.chunks(2).filter(|c| c.len() == 2).map(|c| sync::Peer { name: c[0].clone(), addr: c[1].clone() }).collect();
+    // macOS: yalnızca Link kapsamı (kalıcı silme, gizli klasörler atlanır)
+    let scope = root.map(sync::Scope::link);
     guard(|| {
-        let r = sync::run(mode, root.as_deref(), &targets);
+        let r = sync::run(mode, scope.as_ref(), &targets);
         let mut out = vec![(r.error.is_none() && r.errors.is_empty()) as u8];
         for v in [r.sent, r.got, r.deleted, r.peers] {
             put_u32(&mut out, v);

@@ -33,6 +33,10 @@ jobs:
           echo "--- Package.swift (gizli karakterler dahil)"; cat -etv Package.swift || true
           echo "--- git'te izlenen dosyalar"; git ls-files | head -60
 
+      # Android'le ORTAK paylaşım/eşitleme çekirdeği: sunucu + istemci 127.0.0.1 üzerinden uçtan uca denenir
+      - name: Ortak çekirdek testleri (qshare_core)
+        run: (cd qshare_core && cargo test --release)
+
       - name: Rust çekirdeği testleri
         run: |
           chmod +x scripts/build_rust.sh

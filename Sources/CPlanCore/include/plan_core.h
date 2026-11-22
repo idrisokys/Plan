@@ -1,4 +1,4 @@
-// Plan çekirdeği (Rust) — C ABI. Kaynak: rust/plan_core/src/ffi.rs
+// Plan çekirdeği (Rust) — C ABI. Kaynak: rust/plan_core/src/ffi.rs, ffi_share.rs
 // Tüm dönüş tamponları plan_free(ptr, len) ile serbest bırakılır. Hata/panik durumunda NULL döner.
 // Sayılar little-endian.
 #ifndef PLAN_CORE_H
@@ -37,7 +37,7 @@ uint8_t *plan_scan(const uint8_t *root, size_t root_len, bool include_hidden, si
 uint8_t *plan_thumbnail(const uint8_t *rgba, uint32_t width, uint32_t height, uint32_t max_side,
                         uint32_t *out_w, uint32_t *out_h, size_t *out_len);
 
-// ---- Hızlı Paylaş / Notlarım eşitlemesi (rust/plan_core/src/share, ffi_share.rs) ----
+// ---- Hızlı Paylaş / Notlarım eşitlemesi (qshare_core/src/share — Android'le ortak, köprü: ffi_share.rs) ----
 
 // Rust'tan dönen hata/özet metinlerinin dili (true = İngilizce, false = Türkçe).
 void plan_qs_set_lang(bool english);

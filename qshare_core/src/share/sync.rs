@@ -1,4 +1,4 @@
-//! Notlarım eşitleme istemcisi: `~/Link` içindeki .url/.txt dosyaları ve klasörleri karşı cihazla karşılaştırır.
+//! Klasör eşitleme istemcisi: Link (`.url`/`.txt`) ya da Download (her dosya) klasörünü karşı cihazla karşılaştırır.
 //!
 //! Hız tasarımı:
 //! 1. Yerel tarama ile karşı manifesto indirmesi aynı anda yapılır.
@@ -9,7 +9,7 @@
 //!
 //! Modlar: 0 = iki cihaz aynı olsun (birleştirir; yeni değişiklik tarihi kazanır), 1 = bu cihaza göre
 //! (karşıdaki bu cihazın aynısı olur), 2 = karşıdaki cihaza göre (bu cihaz karşıdakinin aynısı olur).
-//! Silmeler KALICIDIR (Çöp Kutusu yok).
+//! Silmeler `Scope::trash` boşsa KALICIDIR (macOS Plan), doluysa geri alınabilir bir klasöre taşınır (Android `.onemsiz`).
 
 use super::bundle;
 use super::client::Conn;
@@ -18,7 +18,7 @@ use crate::unicode::nfc;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Eşitlemede aynı anda açık bağlantı sayısı.
 const WORKERS: usize = 4;
@@ -82,16 +82,105 @@ impl Outcome {
     }
 }
 
+/// Eşitlemenin çalıştığı klasör ve kuralları.
+/// * Link (`dl == false`): `<ana dizin>/Link`, yalnızca `.url`/`.txt`.
+/// * Download (`dl == true`): İndirilenler, gizli/geçici olmayan her dosya; istekler `X-Root: dl` taşır.
+/// * `trash`: dolu ise silinen öğeler buraya taşınır (Android `.onemsiz`, geri alınabilir); boş ise kalıcı silinir.
+/// * `skip_hidden_dirs`: `.` ile başlayan klasörler taranmaz. macOS Plan: her zaman; Android: yalnızca Download.
+#[derive(Clone, Debug)]
+pub struct Scope {
+    pub root: PathBuf,
+    pub dl: bool,
+    pub trash: Option<PathBuf>,
+    pub skip_hidden_dirs: bool,
+}
+
+impl Scope {
+    /// macOS Plan'ın Link kapsamı: yalnızca `.url`/`.txt`, gizli klasörler atlanır, silme kalıcıdır.
+    pub fn link(root: impl Into<PathBuf>) -> Scope {
+        Scope { root: root.into(), dl: false, trash: None, skip_hidden_dirs: true }
+    }
+
+    pub fn resolve(&self, rel: &str, dir: bool) -> Option<PathBuf> {
+        resolve_scoped(rel, &self.root, dir, self.dl)
+    }
+
+    /// Karşı cihaza giden isteklere eklenen başlık satırı.
+    pub fn hdr(&self) -> &'static str {
+        if self.dl { "X-Root: dl\r\n" } else { "" }
+    }
+
+    /// Silme: `trash` varsa oraya taşır, yoksa kalıcı siler.
+    pub fn remove(&self, p: &Path) -> io::Result<()> {
+        match &self.trash {
+            Some(t) => move_to_trash(p, t),
+            None => remove_any(p),
+        }
+    }
+}
+
+/// Android `moveToOnemsiz`: öğeyi `trash` klasörüne (`.nomedia` ile) taşır; aynı ad varsa `ad_1`, `ad_2`…
+pub fn move_to_trash(p: &Path, trash: &Path) -> io::Result<()> {
+    fs::create_dir_all(trash)?;
+    let _ = OpenOptions::new().write(true).create(true).open(trash.join(".nomedia"));
+    let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("f");
+    let t = unique_us(trash, name);
+    if fs::rename(p, &t).is_ok() {
+        return Ok(());
+    }
+    // Başka bölümdeyse kopyala, başarılıysa kaynağı sil
+    if p.is_dir() {
+        if copy_dir(p, &t).is_ok() {
+            fs::remove_dir_all(p)
+        } else {
+            let _ = fs::remove_dir_all(&t);
+            Err(io::Error::new(io::ErrorKind::Other, "move failed"))
+        }
+    } else {
+        fs::copy(p, &t)?;
+        if let Ok(m) = fs::metadata(p).and_then(|m| m.modified()) {
+            if let Ok(f) = OpenOptions::new().write(true).open(&t) {
+                let _ = f.set_modified(m);
+            }
+        }
+        if fs::remove_file(p).is_ok() {
+            Ok(())
+        } else {
+            let _ = fs::remove_file(&t);
+            Err(io::Error::new(io::ErrorKind::Other, "move failed"))
+        }
+    }
+}
+
+fn copy_dir(from: &Path, to: &Path) -> io::Result<()> {
+    fs::create_dir_all(to)?;
+    for e in fs::read_dir(from)? {
+        let e = e?;
+        let dst = to.join(e.file_name());
+        if e.file_type()?.is_dir() {
+            copy_dir(&e.path(), &dst)?;
+        } else {
+            fs::copy(e.path(), &dst)?;
+        }
+    }
+    Ok(())
+}
+
+/// Karşı taraf zamanı saniye olarak bildirirse (1e11'den küçük) milisaniyeye çevirir.
+pub fn ms(t: i64) -> i64 {
+    if t > 0 && t < 100_000_000_000 { t * 1000 } else { t }
+}
+
 // ---------- Yerel ağaç ----------
 
-/// Yerel not ağacı: göreli yol → öğe (yollar NFC; Android ile aynı yazım). Gizli klasörler atlanır.
-pub fn local(root: &Path) -> HashMap<String, Item> {
+/// Yerel ağaç: göreli yol → öğe (yollar NFC; iki platformda aynı yazım). Gizli klasörler `skip_hidden_dirs`'e göre atlanır.
+pub fn local(sc: &Scope) -> HashMap<String, Item> {
     let mut out = HashMap::new();
-    walk(root, "", 0, &mut out);
+    walk(&sc.root, "", 0, sc, &mut out);
     out
 }
 
-fn walk(d: &Path, prefix: &str, depth: usize, out: &mut HashMap<String, Item>) {
+fn walk(d: &Path, prefix: &str, depth: usize, sc: &Scope, out: &mut HashMap<String, Item>) {
     if depth > MAX_DEPTH {
         return;
     }
@@ -102,12 +191,12 @@ fn walk(d: &Path, prefix: &str, depth: usize, out: &mut HashMap<String, Item>) {
         let Ok(ft) = e.file_type() else { continue };
         let rel = format!("{prefix}{name}");
         if ft.is_dir() {
-            if name.starts_with('.') {
+            if sc.skip_hidden_dirs && name.starts_with('.') {
                 continue;
             }
             out.insert(rel.clone(), Item { rel: rel.clone(), dir: true, size: 0, mtime: 0 });
-            walk(&e.path(), &format!("{rel}/"), depth + 1, out);
-        } else if is_note_name(&name) {
+            walk(&e.path(), &format!("{rel}/"), depth + 1, sc, out);
+        } else if is_sync_name(&name, sc.dl) {
             let (size, mtime) = fs::metadata(e.path()).map(|m| (m.len() as i64, mtime_ms(&m))).unwrap_or((0, 0));
             out.insert(rel.clone(), Item { rel, dir: false, size, mtime });
         }
@@ -115,9 +204,9 @@ fn walk(d: &Path, prefix: &str, depth: usize, out: &mut HashMap<String, Item>) {
 }
 
 /// Manifesto gövdesi: her satır `D|F \t boyut \t mtime(ms) \t yüzde-kodlu yol`.
-pub fn manifest_body(root: &Path) -> String {
+pub fn manifest_body(sc: &Scope) -> String {
     let mut out = String::new();
-    for it in local(root).values() {
+    for it in local(sc).values() {
         out.push_str(&format!("{}\t{}\t{}\t{}\n", if it.dir { "D" } else { "F" }, it.size, it.mtime, enc(&it.rel)));
     }
     out
@@ -134,15 +223,17 @@ pub struct Manifest {
     pub items: HashMap<String, Item>,
     /// Karşı cihazın protokol sürümü (1 = eski/Android, 2 = toplu aktarım destekli)
     pub proto: u8,
+    /// NFC'ye çevrilmeden önceki özgün yollar (yalnızca farklı olanlar): karşıya giden isteklerde bunlar kullanılır
+    pub raw: HashMap<String, String>,
 }
 
 fn status_err(rel: &str, what: &str) -> ShareError {
     ShareError(format!("{rel}: {what}"))
 }
 
-pub fn fetch_manifest(p: &Peer) -> Result<Manifest> {
+pub fn fetch_manifest(p: &Peer, sc: &Scope) -> Result<Manifest> {
     let mut c = Conn::connect(&p.addr)?;
-    c.send(b"GET /m HTTP/1.1\r\nHost: qs\r\nConnection: close\r\n\r\n")?;
+    c.send(format!("GET /m HTTP/1.1\r\nHost: qs\r\n{}Connection: close\r\n\r\n", sc.hdr()).as_bytes())?;
     let h = c.read_head()?;
     if h.status() != 200 {
         let code = h.status();
@@ -151,7 +242,14 @@ pub fn fetch_manifest(p: &Peer) -> Result<Manifest> {
             &format!("the other device does not support Link sync (code {code}); update the app there"),
         );
     }
-    let proto = h.header("x-plan-proto").and_then(|v| v.parse::<u8>().ok()).unwrap_or(1);
+    if sc.dl && h.header("x-root") != Some("dl") {
+        return err(
+            "karşı cihaz Download eşitlemesini desteklemiyor; orada uygulamayı güncelleyin",
+            "the other device does not support Download sync; update the app there",
+        );
+    }
+    // Download eşitlemesi yalnızca eski (dosya başına) protokolle yürür
+    let proto = if sc.dl { 1 } else { h.header("x-plan-proto").and_then(|v| v.parse::<u8>().ok()).unwrap_or(1) };
     let len = h.header("content-length").and_then(|v| v.parse::<usize>().ok()).unwrap_or(0).min(8 << 20);
     let mut data = Vec::with_capacity(len);
     c.read_body(len, &mut |b| {
@@ -159,28 +257,42 @@ pub fn fetch_manifest(p: &Peer) -> Result<Manifest> {
         Ok(())
     })?;
     let mut items = HashMap::new();
+    let mut raws = HashMap::new();
     for ln in String::from_utf8_lossy(&data).split('\n') {
         let a: Vec<&str> = ln.split('\t').collect();
         if a.len() != 4 {
             continue;
         }
-        let rel = dec(a[3]);
+        let raw = dec(a[3].trim()).trim_matches('/').to_string();
+        if raw.is_empty() {
+            continue;
+        }
+        let rel = nfc(&raw);
+        if rel != raw {
+            raws.insert(rel.clone(), raw);
+        }
         items.insert(
             rel.clone(),
-            Item { rel, dir: a[0] == "D", size: a[1].parse().unwrap_or(0), mtime: a[2].parse().unwrap_or(0) },
+            Item {
+                rel,
+                dir: a[0].trim() == "D",
+                size: a[1].trim().parse().unwrap_or(0),
+                mtime: ms(a[2].trim().parse().unwrap_or(0)),
+            },
         );
     }
-    Ok(Manifest { items, proto })
+    Ok(Manifest { items, proto, raw: raws })
 }
 
 // ---------- Eski protokol (dosya başına istek; Android uyumu) ----------
 
-fn pull(p: &Peer, it: &Item, root: &Path) -> Result<()> {
-    let Some(dest) = resolve(&it.rel, root, false) else { return Ok(()) };
-    let parent = dest.parent().unwrap_or(root).to_path_buf();
+fn pull(p: &Peer, it: &Item, sc: &Scope, raw: &HashMap<String, String>) -> Result<()> {
+    let Some(dest) = sc.resolve(&it.rel, false) else { return Ok(()) };
+    let parent = dest.parent().unwrap_or(sc.root.as_path()).to_path_buf();
     fs::create_dir_all(&parent)?;
     let mut c = Conn::connect(&p.addr)?;
-    c.send(format!("GET /f HTTP/1.1\r\nHost: qs\r\nX-Name: {}\r\nConnection: close\r\n\r\n", enc(&it.rel)).as_bytes())?;
+    let wire = raw.get(&it.rel).unwrap_or(&it.rel);
+    c.send(format!("GET /f HTTP/1.1\r\nHost: qs\r\nX-Name: {}\r\n{}Connection: close\r\n\r\n", enc(wire), sc.hdr()).as_bytes())?;
     let h = c.read_head()?;
     if h.status() != 200 {
         return Err(status_err(&it.rel, &h.status().to_string()));
@@ -195,7 +307,7 @@ fn pull(p: &Peer, it: &Item, root: &Path) -> Result<()> {
         .map_err(|_| status_err(&it.rel, &l("yazılamadı", "write failed")))?;
     let res = (|| -> Result<()> {
         c.read_body(len, &mut |b| f.write_all(b))?;
-        if let Some(mt) = h.header("x-mtime").and_then(|v| v.parse::<i64>().ok()).filter(|&m| m > 0) {
+        if let Some(mt) = h.header("x-mtime").and_then(|v| v.parse::<i64>().ok()).map(ms).filter(|&m| m > 0) {
             let _ = f.set_modified(time_from_ms(mt));
         }
         Ok(())
@@ -218,16 +330,17 @@ fn pull(p: &Peer, it: &Item, root: &Path) -> Result<()> {
     Ok(())
 }
 
-fn push(p: &Peer, it: &Item, root: &Path) -> Result<()> {
-    let Some(f) = resolve(&it.rel, root, false) else { return Ok(()) };
+fn push(p: &Peer, it: &Item, sc: &Scope) -> Result<()> {
+    let Some(f) = sc.resolve(&it.rel, false) else { return Ok(()) };
     let md = fs::metadata(&f)?;
     let len = md.len();
     let mt = mtime_ms(&md);
     let mut c = Conn::connect(&p.addr)?;
     let head = format!(
-        "POST /u HTTP/1.1\r\nHost: qs\r\nX-Name: {}\r\nX-Sync: 1\r\nX-Mtime: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "POST /u HTTP/1.1\r\nHost: qs\r\nX-Name: {}\r\nX-Sync: 1\r\nX-Mtime: {}\r\n{}Content-Length: {}\r\nConnection: close\r\n\r\n",
         enc(&it.rel),
         mt,
+        sc.hdr(),
         len
     );
     c.send(head.as_bytes())?;
@@ -252,23 +365,24 @@ fn push(p: &Peer, it: &Item, root: &Path) -> Result<()> {
     Ok(())
 }
 
-fn mkdir_remote(p: &Peer, rel: &str) -> Result<()> {
+fn mkdir_remote(p: &Peer, rel: &str, sc: &Scope) -> Result<()> {
     let mut c = Conn::connect(&p.addr)?;
-    c.send(format!("POST /d HTTP/1.1\r\nHost: qs\r\nX-Name: {}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", enc(rel)).as_bytes())?;
+    c.send(format!("POST /d HTTP/1.1\r\nHost: qs\r\nX-Name: {}\r\n{}Content-Length: 0\r\nConnection: close\r\n\r\n", enc(rel), sc.hdr()).as_bytes())?;
     if c.read_head()?.status() != 200 {
         return Err(status_err(rel, "mkdir"));
     }
     Ok(())
 }
 
-fn delete_remote(p: &Peer, rel: &str, dir: bool) -> Result<()> {
+fn delete_remote(p: &Peer, rel: &str, dir: bool, sc: &Scope) -> Result<()> {
     // Bilerek DELETE ve Content-Length yok: bu özelliği bilmeyen eski sürüm isteği reddeder (boş dosya oluşturmaz).
     let mut c = Conn::connect(&p.addr)?;
     c.send(
         format!(
-            "DELETE /x HTTP/1.1\r\nHost: qs\r\nX-Name: {}\r\nX-Dir: {}\r\nConnection: close\r\n\r\n",
+            "DELETE /x HTTP/1.1\r\nHost: qs\r\nX-Name: {}\r\nX-Dir: {}\r\n{}Connection: close\r\n\r\n",
             enc(rel),
-            if dir { 1 } else { 0 }
+            if dir { 1 } else { 0 },
+            sc.hdr()
         )
         .as_bytes(),
     )?;
@@ -477,19 +591,19 @@ fn note_fail(errs: &mut Vec<String>, peer: &str, fail: u32) {
 }
 
 /// Planı uygular; (gönderilen, alınan, silinen) döndürür. Hatalar `errs`'e eklenir, işlem sürer.
-fn execute(p: &Peer, proto: u8, root: &Path, plan: &Plan, errs: &mut Vec<String>) -> (u32, u32, u32) {
+fn execute(p: &Peer, proto: u8, sc: &Scope, raw: &HashMap<String, String>, plan: &Plan, errs: &mut Vec<String>) -> (u32, u32, u32) {
     let (mut sent, mut got, mut deleted) = (0u32, 0u32, 0u32);
 
-    // 1) Silmeler (kalıcı)
+    // 1) Silmeler (Android'de `sc.trash` doluysa geri alınabilir: .onemsiz klasörüne taşınır)
     for (rel, dir) in &plan.del_remote {
-        match delete_remote(p, rel, *dir) {
+        match delete_remote(p, raw.get(rel).map(|x| x.as_str()).unwrap_or(rel.as_str()), *dir, sc) {
             Ok(()) => deleted += 1,
             Err(e) => note(errs, &p.name, e),
         }
     }
     for (rel, dir) in &plan.del_local {
-        if let Some(f) = resolve(rel, root, *dir) {
-            match if f.exists() { remove_any(&f) } else { Ok(()) } {
+        if let Some(f) = sc.resolve(rel, *dir) {
+            match if f.exists() { sc.remove(&f) } else { Ok(()) } {
                 Ok(()) => deleted += 1,
                 Err(e) => note(errs, &p.name, e),
             }
@@ -498,7 +612,7 @@ fn execute(p: &Peer, proto: u8, root: &Path, plan: &Plan, errs: &mut Vec<String>
 
     // 2) Yerel klasörler
     for d in &plan.mk_local {
-        if let Some(dir) = resolve(d, root, true) {
+        if let Some(dir) = sc.resolve(d, true) {
             if let Err(e) = fs::create_dir_all(dir) {
                 note(errs, &p.name, e);
             }
@@ -510,7 +624,7 @@ fn execute(p: &Peer, proto: u8, root: &Path, plan: &Plan, errs: &mut Vec<String>
         let mut items = plan.mk_remote.clone(); // klasörler önce
         items.extend(plan.push.iter().cloned());
         let cs = chunks(&items);
-        for r in par_map(&cs, WORKERS, &|c: &Vec<Item>| push_bundle(p, c, root)) {
+        for r in par_map(&cs, WORKERS, &|c: &Vec<Item>| push_bundle(p, c, &sc.root)) {
             match r {
                 Ok((files, fail)) => {
                     sent += files.saturating_sub(fail);
@@ -521,11 +635,11 @@ fn execute(p: &Peer, proto: u8, root: &Path, plan: &Plan, errs: &mut Vec<String>
         }
     } else {
         for d in &plan.mk_remote {
-            if let Err(e) = mkdir_remote(p, &d.rel) {
+            if let Err(e) = mkdir_remote(p, &d.rel, sc) {
                 note(errs, &p.name, e);
             }
         }
-        for r in par_map(&plan.push, WORKERS, &|it: &Item| push(p, it, root)) {
+        for r in par_map(&plan.push, WORKERS, &|it: &Item| push(p, it, sc)) {
             match r {
                 Ok(()) => sent += 1,
                 Err(e) => note(errs, &p.name, e),
@@ -536,7 +650,7 @@ fn execute(p: &Peer, proto: u8, root: &Path, plan: &Plan, errs: &mut Vec<String>
     // 4) Al
     if proto >= bundle::PROTO {
         let cs = chunks(&plan.pull);
-        for r in par_map(&cs, WORKERS, &|c: &Vec<Item>| pull_bundle(p, c, root)) {
+        for r in par_map(&cs, WORKERS, &|c: &Vec<Item>| pull_bundle(p, c, &sc.root)) {
             match r {
                 Ok((files, fail)) => {
                     got += files;
@@ -546,7 +660,7 @@ fn execute(p: &Peer, proto: u8, root: &Path, plan: &Plan, errs: &mut Vec<String>
             }
         }
     } else {
-        for r in par_map(&plan.pull, WORKERS, &|it: &Item| pull(p, it, root)) {
+        for r in par_map(&plan.pull, WORKERS, &|it: &Item| pull(p, it, sc, raw)) {
             match r {
                 Ok(()) => got += 1,
                 Err(e) => note(errs, &p.name, e),
@@ -558,9 +672,9 @@ fn execute(p: &Peer, proto: u8, root: &Path, plan: &Plan, errs: &mut Vec<String>
 
 /// Seçilen cihazlarla eşitler (ağ + disk; arka plan iş parçacığında çağrılmalı).
 /// mode: 0 = iki cihazda aynı olsun, 1 = bu cihaza göre, 2 = karşıdaki cihaza göre (ilk seçilen).
-pub fn run(mode: u32, link_root: Option<&Path>, targets: &[Peer]) -> Outcome {
+pub fn run(mode: u32, scope: Option<&Scope>, targets: &[Peer]) -> Outcome {
     let mut res = Outcome { mode, ..Default::default() };
-    let Some(root) = link_root else {
+    let Some(sc) = scope else {
         res.error = Some(l("Link klasörü yok", "no Link folder"));
         return res;
     };
@@ -574,8 +688,8 @@ pub fn run(mode: u32, link_root: Option<&Path>, targets: &[Peer]) -> Outcome {
         let r: Result<()> = (|| {
             // Yerel tarama ile manifesto indirme paralel
             let (loc, m) = std::thread::scope(|s| {
-                let h = s.spawn(|| local(root));
-                let m = fetch_manifest(p);
+                let h = s.spawn(|| local(sc));
+                let m = fetch_manifest(p, sc);
                 (h.join().unwrap_or_default(), m)
             });
             let m = m?;
@@ -584,7 +698,7 @@ pub fn run(mode: u32, link_root: Option<&Path>, targets: &[Peer]) -> Outcome {
                 2 => plan_mirror_local(&loc, &m.items),
                 _ => plan_merge(&loc, &m.items),
             };
-            let (s, g, d) = execute(p, m.proto, root, &plan, &mut errs);
+            let (s, g, d) = execute(p, m.proto, sc, &m.raw, &plan, &mut errs);
             res.sent += s;
             res.got += g;
             res.deleted += d;

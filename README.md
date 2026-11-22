@@ -33,7 +33,7 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere vars
 - Araç çubuğu: en solda başlık (Notlarım ya da klasör adı), sağında klasör ekle, U, D, yenile. Menü çubuğu paneli Notlarım açıkken pencereyi kapatmasın diye sola kayar.
 - Kısa not satırına tıklamak metni panoya kopyalar; satıra uzun basmak kopyalar.
 - `.txt` içinde arama (⌘F), eşleşmeler işaretli, ▲▼ ile gezinme.
-- Eşitleme: Hızlı Paylaş açıkken cihaz listesinin üstündeki ⇄ simgesi; açılan pencerede cihazlar işaretlenir ve "Bu cihaza göre / Karşıdaki cihaza göre / İki cihazda aynı olsun" seçilir. `~/Link` içeriği (Android'deki `<ana dizin>/Link` ile) eşitlenir; silinenler Çöp Kutusu'na gider.
+- Eşitleme: Hızlı Paylaş açıkken cihaz listesinin üstündeki ⇄ simgesi; açılan pencerede cihazlar işaretlenir ve "Bu cihaza göre / Karşıdaki cihaza göre / İki cihazda aynı olsun" seçilir. `~/Link` içeriği (Android'deki `<ana dizin>/Link` ile) eşitlenir; silinenler kalıcı silinir (Çöp Kutusu yok); yalnızca "Bu cihaza göre" / "Karşıdaki cihaza göre" modları siler.
 - Paylaş menüsü: Safari/Paylaş menüsünde **Notlarım** (uygulamanın içindeki `PlanShare.appex` eklentisi).
 - Dosya paylaşımı: **Finder'da** dosya(lar)ı seç → Paylaş → **Notlarım**: açık cihazlar paneli açılır, cihaza dokununca dosyalar gönderilir (klasörler zip'lenir).
 - Adres şeması: `plan://add?t=…` ve `plan://search?q=…`.
@@ -54,7 +54,7 @@ Sources/Plan/
 ├── App.swift            # Giriş: Notlarım penceresi (Window), menü çubuğu simgesi (StatusItemController), AppDelegate, Hizmetler
 ├── ContentView.swift    # Arama çubuğu (ekleme/arama Notlarım ile ortak: NotesStore.submit / searchAsync)
 ├── FloatingBar.swift    # Arama çubuğunu sağ alt köşeye sabitleyen yüzen panel; menü çubuğu simgesi göster/gizle
-├── QuickShare.swift     # Hızlı Paylaş
+├── QuickShare.swift     # Hızlı Paylaş: Bonjour + durum; ağ/dosya işi Rust'ta (RustShare köprüsü)
 └── Notlarim/            # Notlarım kodu (Models, Store, Services, ViewModel, Views, Support)
 Tests/PlanTests/      # Notlarım depolama katmanı testleri
 ```
@@ -69,13 +69,25 @@ C ABI ile bağlanır (`Sources/CPlanCore/include/plan_core.h` → `Support/RustC
 
 | İş | Rust modülü | Swift'te kullanım |
 |---|---|---|
-| Arama motoru (dosya okuma, eşleştirme, özet, sıralama; paralel) | `search.rs`, `fold.rs` | `NotesStore.search` / `searchAsync` (panel ve Notlarım) |
+| Arama motoru: klasör dolaşımı (`.order.txt`/`.pinned.txt` sırası), dosya okuma, eşleştirme, özet (paralel) | `tree.rs`, `search.rs`, `fold.rs`, `unicode.rs` | `NotesStore.search` / `searchAsync` (panel ve Notlarım) |
 | Türkçe/aksan duyarsız sadeleştirme | `fold.rs` | `NotesStore.fold` |
 | Dosya tarama (paralel, katman katman) | `scan.rs` | `RustCore.scan` |
 | Dosya analizi: SHA-256 + metadata (paralel) | `hash.rs` | `RustCore.analyze` |
 | Görsel işleme: küçük resim / toplu küçültme | `image.rs` | `RustCore.thumbnail` |
+| Hızlı Paylaş alma sunucusu (`POST /u`, `GET /m`, `GET /f`, `DELETE /x`, `POST /d`), ad temizleme, `.part` → son ad | `share/server.rs`, `share/proto.rs` | `RustShare.Server` (`QuickShare.start`) |
+| Dosya/klasör gönderme (klasör → `ditto` ile zip) | `share/client.rs` | `RustShare.send` (`QuickShare.send`) |
+| Notlarım eşitleme: manifesto, 3 mod, güvenli yol çözümleme, paralel toplu aktarım | `share/sync.rs`, `share/proto.rs` | `RustShare.sync`, `NoteSync.resolve` |
 
-Rust testleri: `cd rust/plan_core && cargo test`.
+**Hız tasarımı:** eşitleme önce tam bir plan çıkarır (gönder/al/klasör/sil); karşı cihaz `X-Plan-Proto: 2` bildirirse
+dosyalar ~8 MiB / 512 dosyalık paketlere bölünüp en çok 4 paralel bağlantıda tek akışla taşınır (`POST /b`, `POST /g`;
+`share/bundle.rs`), yerel tarama ile karşı manifesto indirme eşzamanlıdır. Android gibi eski cihazlarda dosya başına
+isteklere (paralel) geri dönülür. Çoklu dosya gönderme de 4 bağlantıyla paralel gider.
+
+Bonjour yayını/keşfi (`_qshare._tcp`: `NetService` + `NWBrowser`) ve arayüz Swift'te kalır; Swift bulunan cihazı `ip:port`
+olarak Rust'a verir (`QuickShare.resolveAddress`). Rust tarafı da `cargo test` içinde 127.0.0.1 üzerinden uçtan uca denenir
+(`rust/plan_core/tests/share_loopback.rs`).
+
+Rust testleri: `cd rust/plan_core && cargo test`. Unicode tabloları `tools/gen_unicode.py` ile üretilir.
 
 ## Derleme
 

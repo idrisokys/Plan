@@ -2,8 +2,8 @@ import Foundation
 import Network
 
 /// Android'deki Hızlı Paylaş ile aynı protokol:
-///  - mDNS: `_qshare._tcp`, servis adı "QS"+kimlik[0..10], TXT: n=cihaz adı, i=kimlik
-///  - Alma: düz TCP, `POST /u` + `X-Name` (URL kodlu ad) + `Content-Length`, yanıt `HTTP/1.1 200 OK`
+///  - mDNS: `_qshare._tcp`, servis adı "QS"+kimlik[0..10], TXT: n=cihaz adı, i=kimlik  (Swift: NetService/NWBrowser)
+///  - Alma, gönderme ve Link eşitleme: düz TCP, `POST /u` + `X-Name` + `Content-Length` …  (Rust: rust/plan_core/src/share)
 /// Telefon/TV, aynı ağdaki açık Mac'i bulur ve dosyayı doğrudan gönderir.
 struct QSDevice: Identifiable, Hashable {
     let id: String          // Bonjour servis adı
@@ -39,25 +39,9 @@ final class QuickShare: ObservableObject {
     @Published var sendingTo = Set<String>()
     @Published var syncing = false
 
-    /// Paylaşım ekranındaki ⇄ simgesi: seçilen cihazlarla ~/Link klasörünü eşitler (mode: 0 iki cihazda aynı, 1 bu cihaza göre, 2 karşıdakine göre).
-    func sync(mode: Int, with devices: [QSDevice]) {
-        guard !syncing, !devices.isEmpty else { return }
-        syncing = true
-        post(.sending, L("Eşitleniyor…", "Syncing…"))
-        let targets = devices.map { NoteSync.Peer(id: $0.id, name: $0.name, endpoint: $0.endpoint) }
-        DispatchQueue.global(qos: .userInitiated).async { [self] in
-            let r = NoteSync.run(mode: mode, targets: targets)
-            DispatchQueue.main.async {
-                self.syncing = false
-                NotificationCenter.default.post(name: .notesChangedBySync, object: nil)
-            }
-            post(r.error == nil && r.errors.isEmpty ? .sent : .failed, r.message)
-        }
-    }
-
-    private var listener: NWListener?
+    private var server: RustShare.Server?
+    private var service: NetService?
     private var browser: NWBrowser?
-    private var conns = Set<ConnHandler>()
 
     static var identity: String {
         if let i = UserDefaults.standard.string(forKey: "qsId") { return i }
@@ -72,40 +56,45 @@ final class QuickShare: ObservableObject {
         return d
     }
 
+    // MARK: Aç / kapat
+
     func start() {
-        guard listener == nil else { return }
-        guard let l = try? NWListener(using: .tcp) else { DispatchQueue.main.async { self.message = "Paylaşım açılamadı" }; return }
+        guard server == nil else { return }
+        RustShare.setLanguage()
+        // Alma sunucusu Rust'ta; Bonjour yalnızca onun portunu duyurur.
+        guard let s = RustShare.Server(recvDir: Self.receiveDir, linkRoot: NotesStore.root,
+                                       onEvent: { [weak self] e in self?.handle(e) }) else {
+            DispatchQueue.main.async { self.message = "Paylaşım açılamadı" }
+            return
+        }
+        server = s
+        UserDefaults.standard.set(true, forKey: "qsOn")
         let id = Self.identity
         let name = Host.current().localizedName ?? "Mac"
-        l.service = NWListener.Service(name: "QS" + String(id.prefix(10)), type: "_qshare._tcp",
-                                       txtRecord: NWTXTRecord(["n": name, "i": id]))
-        l.newConnectionHandler = { [weak self] c in
-            let h = ConnHandler(c, owner: self)
-            DispatchQueue.main.async { self?.conns.insert(h) }
-            h.start()
+        let port = Int32(s.port)
+        DispatchQueue.main.async {
+            self.running = true
+            let svc = NetService(domain: "local.", type: "_qshare._tcp.", name: "QS" + String(id.prefix(10)), port: port)
+            svc.setTXTRecord(NetService.data(fromTXTRecord: ["n": Data(name.utf8), "i": Data(id.utf8)]))
+            svc.publish()
+            self.service = svc
         }
-        l.stateUpdateHandler = { [weak self] st in
-            DispatchQueue.main.async {
-                switch st {
-                case .ready: self?.running = true
-                case .failed, .cancelled: self?.running = false; self?.listener = nil
-                default: break
-                }
-            }
-        }
-        l.start(queue: .global(qos: .userInitiated))
-        listener = l
-        UserDefaults.standard.set(true, forKey: "qsOn")
         startBrowsing()
     }
 
     func stop() {
-        listener?.cancel(); listener = nil; running = false
+        server?.stop(); server = nil
         UserDefaults.standard.set(false, forKey: "qsOn")
         browser?.cancel(); browser = nil
-        devices = []
-        info = nil
+        DispatchQueue.main.async {
+            self.service?.stop(); self.service = nil
+            self.running = false
+            self.devices = []
+            self.info = nil
+        }
     }
+
+    func toggle() { running ? stop() : start() }
 
     // MARK: Açık cihazları bul (aynı ağda _qshare._tcp yayınlayanlar)
     private func startBrowsing() {
@@ -131,7 +120,33 @@ final class QuickShare: ObservableObject {
         browser = b
     }
 
-    // MARK: Dosya gönder (alıcı tarafın beklediği: POST /u + X-Name + Content-Length)
+    /// Bonjour uç noktasını Rust'ın kullanacağı "ip:port" adresine çevirir (IPv4 tercih edilir). Engelleyici (≤ 8 sn).
+    static func resolveAddress(_ ep: NWEndpoint) -> String? {
+        let params = NWParameters.tcp
+        if let ip = params.defaultProtocolStack.internetProtocol as? NWProtocolIP.Options { ip.version = .v4 }
+        let conn = NWConnection(to: ep, using: params)
+        let sem = DispatchSemaphore(value: 0)
+        var addr: String?
+        conn.stateUpdateHandler = { st in
+            switch st {
+            case .ready:
+                if case let .hostPort(host, port)? = conn.currentPath?.remoteEndpoint {
+                    var h = "\(host)"
+                    if let i = h.firstIndex(of: "%") { h = String(h[..<i]) }     // arayüz eki (fe80::1%en0)
+                    addr = h.contains(":") ? "[\(h)]:\(port.rawValue)" : "\(h):\(port.rawValue)"
+                }
+                sem.signal()
+            case .failed, .cancelled: sem.signal()
+            default: break
+            }
+        }
+        conn.start(queue: DispatchQueue(label: "qs.resolve"))
+        _ = sem.wait(timeout: .now() + 8)
+        conn.cancel()
+        return addr
+    }
+
+    // MARK: Dosya gönder (Rust: client::send_files)
     func send(_ files: [URL], to d: QSDevice) {
         guard !files.isEmpty else { return }
         let first = files[0].lastPathComponent
@@ -141,15 +156,7 @@ final class QuickShare: ObservableObject {
         }
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             var okCount = 0
-            for f in files {
-                // Klasörler tek dosya olarak gönderilir: geçici bir .zip'e sıkıştırılır
-                var isDir: ObjCBool = false
-                if FileManager.default.fileExists(atPath: f.path, isDirectory: &isDir), isDir.boolValue {
-                    guard let z = Self.zipFolder(f) else { continue }
-                    defer { try? FileManager.default.removeItem(at: z.deletingLastPathComponent()) }
-                    if Self.sendOne(z, to: d.endpoint) { okCount += 1 }
-                } else if Self.sendOne(f, to: d.endpoint) { okCount += 1 }
-            }
+            if let addr = Self.resolveAddress(d.endpoint) { okCount = RustShare.send(files, toAddress: addr) }
             DispatchQueue.main.async { self.sendingTo.remove(d.id) }
             if okCount == files.count {
                 post(.sent, files.count == 1 ? "Gönderildi: \(first) → \(d.name)" : "\(okCount) dosya gönderildi → \(d.name)")
@@ -159,260 +166,51 @@ final class QuickShare: ObservableObject {
         }
     }
 
-    /// Klasörü geçici bir dizine "<ad>.zip" olarak sıkıştırır (çağıran, dosyanın üst dizinini siler).
-    private static func zipFolder(_ dir: URL) -> URL? {
-        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("qs-" + UUID().uuidString, isDirectory: true)
-        guard (try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)) != nil else { return nil }
-        let out = tmp.appendingPathComponent(dir.lastPathComponent + ".zip")
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-        p.arguments = ["-c", "-k", "--sequesterRsrc", "--keepParent", dir.path, out.path]
-        do { try p.run() } catch { try? FileManager.default.removeItem(at: tmp); return nil }
-        p.waitUntilExit()
-        if p.terminationStatus == 0 { return out }
-        try? FileManager.default.removeItem(at: tmp)
-        return nil
-    }
+    // MARK: Link eşitleme (Rust: sync::run)
 
-    private static func sendOne(_ url: URL, to endpoint: NWEndpoint) -> Bool {
-        guard let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
-              let fh = try? FileHandle(forReadingFrom: url) else { return false }
-        defer { try? fh.close() }
-
-        let conn = NWConnection(to: endpoint, using: .tcp)
-        let q = DispatchQueue(label: "qs.tx")
-        let readySem = DispatchSemaphore(value: 0)
-        var isReady = false
-        conn.stateUpdateHandler = { st in
-            switch st {
-            case .ready: isReady = true; readySem.signal()
-            case .failed, .cancelled: readySem.signal()
-            default: break
+    /// Paylaşım ekranındaki ⇄ simgesi: seçilen cihazlarla ~/Link klasörünü eşitler (mode: 0 iki cihazda aynı, 1 bu cihaza göre, 2 karşıdakine göre).
+    func sync(mode: Int, with devices: [QSDevice]) {
+        guard !syncing, !devices.isEmpty else { return }
+        syncing = true
+        post(.sending, L("Eşitleniyor…", "Syncing…"))
+        let targets = mode == 2 ? Array(devices.prefix(1)) : devices     // mod 2'de yalnızca ilk seçilen
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
+            var peers: [(name: String, addr: String)] = []
+            var errs: [String] = []
+            for d in targets {
+                if let a = Self.resolveAddress(d.endpoint) { peers.append((d.name, a)) }
+                else { errs.append("\(d.name): " + L("bağlantı kurulamadı", "could not connect")) }
             }
+            var ok = false
+            var text = errs.first ?? L("Açık cihaz bulunamadı", "No open device found")
+            // Mod 2 yıkıcıdır: ilk cihaza ulaşılamadıysa başka cihaza kaydırma
+            if !peers.isEmpty, let r = RustShare.sync(mode: mode, linkRoot: NotesStore.root, peers: peers) {
+                ok = r.ok && errs.isEmpty
+                text = errs.isEmpty ? r.message : r.message + "\n" + errs[0]
+            }
+            DispatchQueue.main.async {
+                self.syncing = false
+                NotificationCenter.default.post(name: .notesChangedBySync, object: nil)
+            }
+            post(ok ? .sent : .failed, text)
         }
-        conn.start(queue: q)
-        defer { conn.cancel() }
-        guard readySem.wait(timeout: .now() + 8) == .success, isReady else { return false }
-
-        func push(_ data: Data) -> Bool {
-            let sem = DispatchSemaphore(value: 0)
-            var good = true
-            conn.send(content: data, completion: .contentProcessed { err in if err != nil { good = false }; sem.signal() })
-            sem.wait()
-            return good
-        }
-
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
-        let encName = url.lastPathComponent.addingPercentEncoding(withAllowedCharacters: allowed) ?? "file"
-        let head = "POST /u HTTP/1.1\r\nHost: qs\r\nX-Name: \(encName)\r\nContent-Type: application/octet-stream\r\nContent-Length: \(size)\r\nConnection: close\r\n\r\n"
-        guard push(Data(head.utf8)) else { return false }
-        while true {
-            guard let chunk = try? fh.read(upToCount: 1 << 20), !chunk.isEmpty else { break }
-            guard push(chunk) else { return false }
-        }
-
-        let rsem = DispatchSemaphore(value: 0)
-        var reply = ""
-        conn.receive(minimumIncompleteLength: 1, maximumLength: 512) { data, _, _, _ in
-            if let d = data { reply = String(decoding: d, as: UTF8.self) }
-            rsem.signal()
-        }
-        guard rsem.wait(timeout: .now() + 30) == .success else { return false }
-        return reply.hasPrefix("HTTP/1.1 200") || reply.hasPrefix("HTTP/1.0 200")
     }
 
-    func toggle() { running ? stop() : start() }
+    // MARK: Rust olayları
 
-    fileprivate func remove(_ h: ConnHandler) { DispatchQueue.main.async { self.conns.remove(h) } }
-
-    /// Eşitleme ~/Link içeriğini değiştirdi: açık Notlarım penceresi listeyi yeniler.
-    fileprivate func notesChanged() { DispatchQueue.main.async { NotificationCenter.default.post(name: .notesChangedBySync, object: nil) } }
-
-    fileprivate func receiving(_ name: String) { post(.receiving, "Alınıyor: \(name)") }
-    fileprivate func received(_ name: String, folder: URL) { post(.received, "Alındı: \(name)", folder: folder) }
+    private func handle(_ e: RustShare.Event) {
+        switch e {
+        case .receiving(let n): post(.receiving, "Alınıyor: \(n)")
+        case .received(let n, let folder): post(.received, "Alındı: \(n)", folder: folder)
+        case .failed(let n): post(.failed, "Alma yarım kaldı: \(n)")
+        case .notesChanged:
+            // Eşitleme ~/Link içeriğini değiştirdi: açık Notlarım penceresi listeyi yeniler.
+            DispatchQueue.main.async { NotificationCenter.default.post(name: .notesChangedBySync, object: nil) }
+        }
+    }
 
     /// Bildirim göndermez; bilgi yalnızca paylaşım ekranındaki satırda görünür.
     func post(_ kind: QSInfo.Kind, _ s: String, folder: URL? = nil) {
         DispatchQueue.main.async { self.info = QSInfo(kind: kind, text: s, folder: folder) }
-    }
-}
-
-private final class ConnHandler: Hashable {
-    static func == (a: ConnHandler, b: ConnHandler) -> Bool { a === b }
-    func hash(into h: inout Hasher) { h.combine(ObjectIdentifier(self)) }
-
-    private let c: NWConnection
-    private let q = DispatchQueue(label: "qs.rx")
-    private weak var owner: QuickShare?
-    private var buf = Data()
-    private var headerDone = false, finished = false, werr = false
-    private var name = "file"
-    private var left: Int64 = 0
-    private var fh: FileHandle?
-    private var part: URL?
-    private var syncDest: URL?          // Notlarım eşitlemesi: dosyanın ~/Link içindeki hedefi (nil = düz dosya alma)
-    private var syncMtime: Int64 = -1
-
-    init(_ c: NWConnection, owner: QuickShare?) { self.c = c; self.owner = owner }
-
-    func start() { c.start(queue: q); receive() }
-
-    private func receive() {
-        c.receive(minimumIncompleteLength: 1, maximumLength: 1 << 20) { [self] data, _, done, err in
-            if finished { return }
-            if let d = data, !d.isEmpty { headerDone ? write(d) : header(d) }
-            if finished { return }
-            if err != nil || done { fail(); return }
-            receive()
-        }
-    }
-
-    private func header(_ d: Data) {
-        buf.append(d)
-        guard let r = buf.range(of: Data("\r\n\r\n".utf8)) else {
-            if buf.count > 16384 { reply("400 Bad Request") }
-            return
-        }
-        let head = String(decoding: buf[..<r.lowerBound], as: UTF8.self)
-        let rest = Data(buf[r.upperBound...])
-        let lines = head.components(separatedBy: "\r\n")
-        let first = lines[0].split(separator: " ").map(String.init)
-        let method = first.first ?? "", target = first.count > 1 ? first[1] : ""
-        var len: Int64 = -1
-        var sync = false, isDir = false
-        var mtime: Int64 = -1
-        for l in lines.dropFirst() {
-            guard let i = l.firstIndex(of: ":") else { continue }
-            let k = l[..<i].lowercased(), v = l[l.index(after: i)...].trimmingCharacters(in: .whitespaces)
-            if k == "content-length" { len = Int64(v) ?? -1 }
-            else if k == "x-name" { name = v.replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? v }
-            else if k == "x-sync" { sync = v == "1" }
-            else if k == "x-mtime" { mtime = Int64(v) ?? -1 }
-            else if k == "x-dir" { isDir = v == "1" }
-        }
-        // Notlarım eşitleme uç noktaları (Android ile aynı): GET /m (liste), GET /f (dosya), DELETE /x (sil), POST /d (klasör)
-        if (method == "GET" && (target == "/m" || target == "/f")) || (method == "DELETE" && target == "/x") || (method == "POST" && target == "/d") {
-            serveSync(method, target, isDir: isDir); return
-        }
-        guard method == "POST", target == "/u", len >= 0 else { reply(target == "/u" ? "400 Bad Request" : "500 Error"); return }
-
-        let saveTo: URL
-        let partName: String
-        if sync {
-            // Eşitleme: X-Name ~/Link içindeki göreli yoldur (alt klasörlü); zaman korunur, aynı yoldaki dosyanın üzerine yazılır
-            guard let root = NotesStore.root, let dst = NoteSync.resolve(name, root: root) else { reply("400 Bad Request"); return }
-            syncDest = dst; syncMtime = mtime
-            saveTo = dst.deletingLastPathComponent(); partName = dst.lastPathComponent; name = partName
-            try? FileManager.default.createDirectory(at: saveTo, withIntermediateDirectories: true)
-        } else {
-            name = Self.cleanName(name)
-            saveTo = QuickShare.receiveDir; partName = name
-        }
-        let p = saveTo.appendingPathComponent("\(partName).\(UUID().uuidString.prefix(8)).part")
-        guard FileManager.default.createFile(atPath: p.path, contents: nil), let h = try? FileHandle(forWritingTo: p) else {
-            reply("500 Error"); return
-        }
-        part = p; fh = h; left = len; headerDone = true; buf = Data()
-        if syncDest == nil { owner?.receiving(name) }
-        if left == 0 { complete() } else if !rest.isEmpty { write(rest) }
-    }
-
-    private func write(_ d: Data) {
-        let n = Int(min(Int64(d.count), left))
-        if n > 0 { do { try fh?.write(contentsOf: d.prefix(n)) } catch { werr = true } }
-        left -= Int64(n)
-        if left == 0 { complete() }
-    }
-
-    private func complete() {
-        try? fh?.close(); fh = nil
-        var ok = !werr
-        var saveDir = QuickShare.receiveDir
-        if ok, let p = part {
-            let fm = FileManager.default
-            if let d = syncDest {
-                if syncMtime > 0 { try? fm.setAttributes([.modificationDate: Date(timeIntervalSince1970: Double(syncMtime) / 1000)], ofItemAtPath: p.path) }
-                do { if fm.fileExists(atPath: d.path) { try fm.removeItem(at: d) }; try fm.moveItem(at: p, to: d) } catch { ok = false }
-            } else {
-                let dest = Self.unique(saveDir, name)
-                do { try fm.moveItem(at: p, to: dest); name = dest.lastPathComponent; saveDir = dest.deletingLastPathComponent() } catch { ok = false }
-            }
-        }
-        if !ok, let p = part { try? FileManager.default.removeItem(at: p) }
-        if ok { if syncDest == nil { owner?.received(name, folder: saveDir) } else { owner?.notesChanged() } }
-        else { owner?.post(.failed, "Alma yarım kaldı: \(name)") }
-        reply(ok ? "200 OK" : "500 Error")
-    }
-
-    /// Eşitleme uç noktaları; hepsi ~/Link içinde çalışır.
-    private func serveSync(_ method: String, _ target: String, isDir: Bool) {
-        guard let root = NotesStore.root else { reply("500 Error"); return }
-        let fm = FileManager.default
-        switch target {
-        case "/m":
-            var out = ""
-            for it in NoteSync.local(root: root).values {
-                out += "\(it.dir ? "D" : "F")\t\(it.size)\t\(it.mtime)\t\(NoteSync.enc(it.rel))\n"
-            }
-            respond("200 OK", body: Data(out.utf8))
-        case "/f":
-            guard let f = NoteSync.resolve(name, root: root), let data = try? Data(contentsOf: f) else { reply("404 Not Found"); return }
-            let mt = NoteSync.ms((try? f.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate)
-            respond("200 OK", extra: "X-Mtime: \(mt)\r\n", body: data)
-        case "/x":
-            // Silinen öğe Çöp Kutusu'na gider (geri alınabilir)
-            guard let f = NoteSync.resolve(name, root: root, dir: isDir) else { reply("500 Error"); return }
-            var ok = true
-            if fm.fileExists(atPath: f.path) { ok = (try? fm.trashItem(at: f, resultingItemURL: nil)) != nil }
-            if ok { owner?.notesChanged() }
-            reply(ok ? "200 OK" : "500 Error")
-        default:
-            guard let d = NoteSync.resolve(name, root: root, dir: true) else { reply("500 Error"); return }
-            var isD: ObjCBool = false
-            let ok = (fm.fileExists(atPath: d.path, isDirectory: &isD) && isD.boolValue)
-                || (try? fm.createDirectory(at: d, withIntermediateDirectories: true)) != nil
-            if ok { owner?.notesChanged() }
-            reply(ok ? "200 OK" : "500 Error")
-        }
-    }
-
-    private func respond(_ st: String, extra: String = "", body: Data) {
-        finished = true
-        var d = Data("HTTP/1.1 \(st)\r\nContent-Length: \(body.count)\r\n\(extra)Connection: close\r\n\r\n".utf8)
-        d.append(body)
-        c.send(content: d, completion: .contentProcessed { [self] _ in c.cancel(); owner?.remove(self) })
-    }
-
-    private func fail() {
-        finished = true
-        try? fh?.close()
-        if let p = part { try? FileManager.default.removeItem(at: p) }
-        c.cancel(); owner?.remove(self)
-    }
-
-    private func reply(_ st: String) {
-        finished = true
-        let r = "HTTP/1.1 \(st)\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-        c.send(content: Data(r.utf8), completion: .contentProcessed { [self] _ in c.cancel(); owner?.remove(self) })
-    }
-
-    // Android ile aynı temizleme: yol parçaları atılır, \u0000-\u001f : * ? " < > | → _, baştaki noktalar, en çok 120 karakter
-    private static func cleanName(_ s: String) -> String {
-        var n = s.components(separatedBy: "/").last ?? s
-        n = n.components(separatedBy: "\\").last ?? n
-        n = String(n.unicodeScalars.map { ($0.value < 32 || ":*?\"<>|".unicodeScalars.contains($0)) ? "_" : Character($0) })
-        n = String(n.drop(while: { $0 == "." }).prefix(120))
-        return n.isEmpty ? "file" : n
-    }
-
-    /// Aynı adlı dosya varsa üzerine yazmak yerine "ad (2).uzantı" olarak kaydeder.
-    private static func unique(_ dir: URL, _ name: String) -> URL {
-        let fm = FileManager.default
-        var u = dir.appendingPathComponent(name), i = 2
-        let ext = (name as NSString).pathExtension, base = (name as NSString).deletingPathExtension
-        while fm.fileExists(atPath: u.path) {
-            u = dir.appendingPathComponent(ext.isEmpty ? "\(base) (\(i))" : "\(base) (\(i)).\(ext)"); i += 1
-        }
-        return u
     }
 }

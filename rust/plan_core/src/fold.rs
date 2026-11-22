@@ -1,51 +1,18 @@
 //! Büyük/küçük harf, Türkçe i/ı/İ/I ve Latin aksan farkını yok sayan sadeleştirme.
 //!
 //! Swift'teki `NotesStore.fold` ile aynı sonucu verir (NFD + birleşik işaretleri at + küçült).
-//! Tam Unicode NFD tablosu yerine Latin-1 / Latin Genişletilmiş-A tablosu ve U+0300–036F birleşik
-//! işaretleri kullanılır; Türkçe ve Avrupa dilleri için yeterlidir.
+//! Tam Unicode kanonik ayrışımı kullanılır (`unicode.rs`).
 
-const LATIN1: &str = "AAAAAA?CEEEEIIII?NOOOOO??UUUUY??aaaaaa?ceeeeiiii?nooooo??uuuuy?y";
-const EXT_A: [&str; 8] = [
-    "AaAaAaCcCcCcCcDd",
-    "??EeEeEeEeEeGgGg",
-    "GgGgHh??IiIiIiIi",
-    "Ii??JjKk?LlLlLl?",
-    "???NnNnNn???OoOo",
-    "Oo??RrRrRrSsSsSs",
-    "SsTtTt??UuUuUuUu",
-    "UuUuWwYyYZzZzZz?",
-];
-
-/// Aksansız taban harfi (varsa).
-fn base_letter(c: char) -> Option<char> {
-    let cp = c as u32;
-    let b = match cp {
-        0xC0..=0xFF => LATIN1.as_bytes()[(cp - 0xC0) as usize] as char,
-        0x100..=0x17F => {
-            let o = (cp - 0x100) as usize;
-            EXT_A[o / 16].as_bytes()[o % 16] as char
-        }
-        0x419 => return Some('и'), // Й
-        0x439 => return Some('и'), // й
-        0x401 | 0x451 => return Some('е'), // Ё ё
-        _ => return None,
-    };
-    if b == '?' { None } else { Some(b) }
-}
+use crate::unicode::{is_nonspacing_mark, nfd};
 
 #[inline]
-fn is_combining(c: char) -> bool {
-    matches!(c as u32, 0x0300..=0x036F)
-}
-
-#[inline]
-fn push_lower(c: char, mut f: impl FnMut(char)) {
+fn push_lower(c: char, f: &mut impl FnMut(char)) {
     for l in c.to_lowercase() {
         f(l);
     }
 }
 
-/// Tek karakteri sadeleştirip `f`'e verir.
+/// Tek karakteri sadeleştirip `f`'e verir: Türkçe harfler, sonra NFD + birleşik işaretleri at + küçült.
 fn fold_char(c: char, f: &mut impl FnMut(char)) {
     match c {
         'İ' | 'ı' | 'I' => f('i'),
@@ -54,11 +21,15 @@ fn fold_char(c: char, f: &mut impl FnMut(char)) {
         'ü' | 'Ü' => f('u'),
         'ö' | 'Ö' => f('o'),
         'ç' | 'Ç' => f('c'),
-        _ if is_combining(c) => {}
-        _ => match base_letter(c) {
-            Some(b) => push_lower(b, f),
-            None => push_lower(c, f),
-        },
+        _ if c.is_ascii() => f(c.to_ascii_lowercase()),
+        _ => {
+            let mut buf = [0u8; 4];
+            for d in nfd(c.encode_utf8(&mut buf)).chars() {
+                if !is_nonspacing_mark(d) {
+                    push_lower(d, f);
+                }
+            }
+        }
     }
 }
 
@@ -93,7 +64,7 @@ mod tests {
         assert_eq!(fold("ŞĞÜÖÇı"), "sguoci");
         assert_eq!(fold("Café"), "cafe");
         assert_eq!(fold("Çalışma Notları"), "calisma notlari");
-        assert_eq!(fold("ÀÉÎõÜ ñ Ł Œ"), "aeiou n ł œ");
+        assert_eq!(fold("ÀÉÎõÜ ñ Ł Œ ệ й"), "aeiou n ł œ e и");
     }
 
     #[test]

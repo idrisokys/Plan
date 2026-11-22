@@ -329,12 +329,4 @@ enum NotesStore {
         renamePin(url.deletingLastPathComponent(), name, nil)
         return true
     }
-
-    /// Eski davranış: Çöp Kutusu'na gönderir (artık kullanılmıyor).
-    static func delete(_ url: URL) {
-        lock.lock(); defer { lock.unlock() }
-        let fm = FileManager.default
-        do { try fm.trashItem(at: url, resultingItemURL: nil) }
-        catch { try? fm.removeItem(at: url) }
-    }
 }

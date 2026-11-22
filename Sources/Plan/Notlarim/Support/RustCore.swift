@@ -62,11 +62,12 @@ enum RustCore {
 
     // MARK: - Arama
 
-    struct RawHit {
-        let index: Int
+    struct TreeHit {
+        let entry: Entry
+        let path: [Entry]
+        let detail: String
         let isNote: Bool
         let titleMatch: Bool
-        let detail: String
     }
 
     /// `alive` Rust iş parçacıklarından çağrılır; iş parçacığı güvenli olmalıdır.
@@ -75,37 +76,44 @@ enum RustCore {
         init(_ f: @escaping () -> Bool) { self.f = f }
     }
 
-    /// kinds: 0 = .url, 1 = .txt, 2 = klasör. Sonuç Rust'ta sıralanır (başlıkta geçenler önce, en çok 500).
-    static func search(items: [(kind: UInt8, path: String, title: String)], query: String,
-                       alive: @escaping () -> Bool) -> [RawHit] {
-        var buf = Data()
-        for it in items {
-            buf.append(it.kind)
-            appendStr(&buf, it.path)
-            appendStr(&buf, it.title)
-        }
+    private static func readEntry(_ r: inout Reader) -> Entry? {
+        guard let name = r.str(), let path = r.str(), let isDir = r.u8(), let pinned = r.u8() else { return nil }
+        var e = Entry(name: name, url: URL(fileURLWithPath: path), isDir: isDir == 1)
+        e.pinned = pinned == 1
+        return e
+    }
+
+    /// Klasör dolaşımı (sıra/sabitleme kurallarıyla), dosya okuma, eşleştirme, özet ve sıralama Rust'ta yapılır.
+    /// Sonuç: başlıkta geçenler önce, en çok 500 isabet.
+    static func searchTree(root: URL, query: String, alive: @escaping () -> Bool) -> [TreeHit] {
         let box = AliveBox(alive)
+        let rootBytes = Array(root.path.utf8)
         let q = Array(query.utf8)
         var n = 0
         let p: UnsafeMutablePointer<UInt8>? = withExtendedLifetime(box) {
             let ctx = Unmanaged.passUnretained(box).toOpaque()
-            return buf.withUnsafeBytes { raw in
+            return rootBytes.withUnsafeBufferPointer { rp in
                 q.withUnsafeBufferPointer { qp in
-                    plan_search(raw.bindMemory(to: UInt8.self).baseAddress, raw.count,
-                                qp.baseAddress, qp.count,
-                                { c in Unmanaged<AliveBox>.fromOpaque(c!).takeUnretainedValue().f() },
-                                ctx, &n)
+                    plan_search_tree(rp.baseAddress, rp.count, qp.baseAddress, qp.count,
+                                     { c in Unmanaged<AliveBox>.fromOpaque(c!).takeUnretainedValue().f() },
+                                     ctx, &n)
                 }
             }
         }
         guard let bytes = take(p, n) else { return [] }
         var r = Reader(bytes)
         guard let count = r.u32() else { return [] }
-        var out = [RawHit]()
+        var out = [TreeHit]()
         out.reserveCapacity(count)
         for _ in 0..<count {
-            guard let idx = r.u32(), let flags = r.u8(), let detail = r.str() else { break }
-            out.append(RawHit(index: idx, isNote: flags & 1 != 0, titleMatch: flags & 2 != 0, detail: detail))
+            guard let flags = r.u8(), let detail = r.str(), let entry = readEntry(&r), let na = r.u32() else { break }
+            var path = [Entry]()
+            for _ in 0..<na {
+                guard let a = readEntry(&r) else { return out }
+                path.append(a)
+            }
+            out.append(TreeHit(entry: entry, path: path, detail: detail,
+                               isNote: flags & 1 != 0, titleMatch: flags & 2 != 0))
         }
         return out
     }

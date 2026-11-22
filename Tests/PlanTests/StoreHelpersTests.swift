@@ -42,29 +42,3 @@ final class StoreHelpersTests: XCTestCase {
         XCTAssertEqual(folder.title, "Klasör")
     }
 }
-
-// Rust çekirdeği köprüsü (rust/plan_core)
-final class RustCoreTests: XCTestCase {
-    func testAnalyzeComputesSha256AndSize() throws {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("rc-\(UUID().uuidString).txt")
-        try Data("abc".utf8).write(to: url)
-        defer { try? FileManager.default.removeItem(at: url) }
-        let info = RustCore.analyze([url, URL(fileURLWithPath: "/yok/boyle/dosya")])
-        XCTAssertEqual(info.count, 2)
-        XCTAssertTrue(info[0].ok)
-        XCTAssertEqual(info[0].size, 3)
-        XCTAssertEqual(info[0].sha256, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
-        XCTAssertFalse(info[1].ok)
-    }
-
-    func testScanListsTreeWithoutHiddenFiles() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("rs-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: dir.appendingPathComponent("a"), withIntermediateDirectories: true)
-        try Data("x".utf8).write(to: dir.appendingPathComponent("a/n.txt"))
-        try Data("x".utf8).write(to: dir.appendingPathComponent(".gizli"))
-        defer { try? FileManager.default.removeItem(at: dir) }
-        let items = RustCore.scan(dir)
-        XCTAssertEqual(items.map { $0.url.lastPathComponent }, ["a", "n.txt"])
-        XCTAssertEqual(items.map { $0.isDir }, [true, false])
-    }
-}

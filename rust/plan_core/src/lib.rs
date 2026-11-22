@@ -2,9 +2,6 @@
 //!
 //! * `fold`   – Türkçe/aksan duyarsız metin sadeleştirme
 //! * `search` – not/link dosyalarında paralel arama
-//! * `scan`   – dizin ağacını paralel tarama
-//! * `hash`   – SHA-256 ve dosya metadata'sı
-//! * `image`  – RGBA küçük resim (alan ortalamalı küçültme)
 //! * `share`  – Hızlı Paylaş: alma sunucusu, dosya/klasör gönderme, Notlarım eşitlemesi (`qshare_core::share`, Android'le ORTAK)
 //! * `unicode`– NFC/NFD (`qshare_core::unicode`, Android'le ORTAK)
 //! * `ffi`    – C ABI (`ffi_share`: paylaşım/eşitleme köprüsü)
@@ -12,9 +9,6 @@
 pub mod ffi;
 pub mod ffi_share;
 pub mod fold;
-pub mod hash;
-pub mod image;
-pub mod scan;
 pub mod search;
 pub mod tree;
 

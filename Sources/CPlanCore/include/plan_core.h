@@ -27,16 +27,6 @@ uint8_t *plan_search_tree(const uint8_t *root, size_t root_len,
                           bool (*alive)(void *), void *ctx,
                           size_t *out_len);
 
-// Girdi: [yol: u32 uzunluk + bayt]…   Çıktı: yol başına 49 bayt [durum u8][boyut u64][mtime i64][sha256 32 bayt]
-uint8_t *plan_analyze_files(const uint8_t *paths, size_t len, size_t *out_len);
-
-// Çıktı: kayıtlar [tür u8: 0=dosya 1=klasör 2=diğer][boyut u64][mtime i64][yol: u32 uzunluk + bayt]
-uint8_t *plan_scan(const uint8_t *root, size_t root_len, bool include_hidden, size_t *out_len);
-
-// Premultiplied RGBA8 → en uzun kenarı max_side olan küçük resim (aynı biçim, büyütme yok).
-uint8_t *plan_thumbnail(const uint8_t *rgba, uint32_t width, uint32_t height, uint32_t max_side,
-                        uint32_t *out_w, uint32_t *out_h, size_t *out_len);
-
 // ---- Hızlı Paylaş / Notlarım eşitlemesi (qshare_core/src/share — Android'le ortak, köprü: ffi_share.rs) ----
 
 // Rust'tan dönen hata/özet metinlerinin dili (true = İngilizce, false = Türkçe).

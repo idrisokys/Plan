@@ -8,7 +8,7 @@ source version.env
 APP=Plan.app
 PLISTBUDDY=/usr/libexec/PlistBuddy
 
-# Rust çekirdeği (tarama, arama, hash, küçük resim) önce derlenir
+# Rust çekirdeği (arama, paylaşım) önce derlenir
 bash scripts/build_rust.sh
 
 # Yalnızca Apple Silicon (arm64) derleme

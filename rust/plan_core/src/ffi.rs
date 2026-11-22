@@ -1,7 +1,7 @@
 //! C ABI. Tüm dönüş tamponları `plan_free` ile serbest bırakılmalıdır. Hata/panik → null.
 //! Sayılar little-endian; ayrıntı için `include/plan_core.h`.
 
-use crate::{fold, hash, image, scan, tree};
+use crate::{fold, tree};
 use std::os::raw::c_void;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
@@ -23,9 +23,10 @@ pub(crate) fn guard(f: impl FnOnce() -> *mut u8) -> *mut u8 {
     catch_unwind(AssertUnwindSafe(f)).unwrap_or(std::ptr::null_mut())
 }
 
+#[cfg(test)]
 struct Reader<'a>(&'a [u8], usize);
+#[cfg(test)]
 impl<'a> Reader<'a> {
-    #[cfg(test)]
     fn u8(&mut self) -> Option<u8> {
         let v = *self.0.get(self.1)?;
         self.1 += 1;
@@ -110,75 +111,6 @@ pub unsafe extern "C" fn plan_search_tree(
             }
         }
         leak(out, out_len)
-    })
-}
-
-/// Girdi: [yol: u32 uzunluk + bayt]…  Çıktı: her yol için 49 bayt:
-/// [durum u8: 1=tamam][boyut u64][mtime i64][sha256 32 bayt]
-#[no_mangle]
-pub unsafe extern "C" fn plan_analyze_files(paths: *const u8, len: usize, out_len: *mut usize) -> *mut u8 {
-    let data = bytes(paths, len);
-    guard(|| {
-        let mut r = Reader(data, 0);
-        let mut list = Vec::new();
-        while r.1 < data.len() {
-            match r.str() {
-                Some(p) => list.push(p),
-                None => return std::ptr::null_mut(),
-            }
-        }
-        let mut out = Vec::with_capacity(list.len() * 49);
-        for i in hash::analyze_many(&list) {
-            out.push(i.ok as u8);
-            out.extend_from_slice(&i.size.to_le_bytes());
-            out.extend_from_slice(&i.mtime.to_le_bytes());
-            out.extend_from_slice(&i.digest);
-        }
-        leak(out, out_len)
-    })
-}
-
-/// Çıktı: her giriş için [tür u8: 0=dosya 1=klasör 2=diğer][boyut u64][mtime i64][yol: u32 uzunluk + bayt]
-#[no_mangle]
-pub unsafe extern "C" fn plan_scan(root: *const u8, root_len: usize, include_hidden: bool, out_len: *mut usize) -> *mut u8 {
-    let root = String::from_utf8_lossy(bytes(root, root_len)).into_owned();
-    guard(|| {
-        let mut out = Vec::new();
-        for e in scan::scan(&root, include_hidden) {
-            out.push(e.kind);
-            out.extend_from_slice(&e.size.to_le_bytes());
-            out.extend_from_slice(&e.mtime.to_le_bytes());
-            put_u32(&mut out, e.path.len() as u32);
-            out.extend_from_slice(e.path.as_bytes());
-        }
-        leak(out, out_len)
-    })
-}
-
-/// Premultiplied RGBA8 → en uzun kenarı `max_side` olan küçük resim (aynı biçim).
-#[no_mangle]
-pub unsafe extern "C" fn plan_thumbnail(
-    rgba: *const u8,
-    width: u32,
-    height: u32,
-    max_side: u32,
-    out_w: *mut u32,
-    out_h: *mut u32,
-    out_len: *mut usize,
-) -> *mut u8 {
-    let n = (width as usize).saturating_mul(height as usize).saturating_mul(4);
-    let src = bytes(rgba, n);
-    guard(|| match image::thumbnail(src, width, height, max_side) {
-        Some((w, h, v)) => {
-            if !out_w.is_null() {
-                *out_w = w;
-            }
-            if !out_h.is_null() {
-                *out_h = h;
-            }
-            leak(v, out_len)
-        }
-        None => std::ptr::null_mut(),
     })
 }
 

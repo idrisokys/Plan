@@ -7,7 +7,7 @@ import Foundation
 //   Plan      -> Sources/Plan      (menü çubuğu uygulaması, Notlarım)
 //   PlanTests -> Tests/PlanTests
 //
-// CPU yoğun işler (tarama, arama, hash/metadata, küçük resim) rust/plan_core içindedir; paylaşım/eşitleme ise
+// CPU yoğun işler (arama, Türkçe metin sadeleştirme) rust/plan_core içindedir; paylaşım/eşitleme ise
 // Android'le ORTAK qshare_core'dadır (plan_core'a statik olarak gömülür). Bunlar
 // önce derlenmelidir: scripts/build_rust.sh  (build.sh ve CI bunu kendiliğinden çalıştırır).
 //

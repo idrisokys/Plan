@@ -2,7 +2,7 @@
 name = "plan_core"
 version = "0.1.0"
 edition = "2021"
-description = "Plan uygulamasının CPU yoğun işleri: tarama, arama, hash/metadata, küçük resim"
+description = "Plan uygulamasının CPU yoğun işleri: arama, Türkçe metin sadeleştirme, paylaşım köprüsü"
 publish = false
 
 # Dış (crates.io) bağımlılık yok: yalnızca std + yerel `qshare_core`. Böylece çevrimdışı derlenir.

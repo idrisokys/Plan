@@ -71,9 +71,6 @@ C ABI ile bağlanır (`Sources/CPlanCore/include/plan_core.h` → `Support/RustC
 |---|---|---|
 | Arama motoru: klasör dolaşımı (`.order.txt`/`.pinned.txt` sırası), dosya okuma, eşleştirme, özet (paralel) | `tree.rs`, `search.rs`, `fold.rs`, `unicode.rs` (ortak: `qshare_core`) | `NotesStore.search` / `searchAsync` (panel ve Notlarım) |
 | Türkçe/aksan duyarsız sadeleştirme | `fold.rs` | `NotesStore.fold` |
-| Dosya tarama (paralel, katman katman) | `scan.rs` | `RustCore.scan` |
-| Dosya analizi: SHA-256 + metadata (paralel) | `hash.rs` | `RustCore.analyze` |
-| Görsel işleme: küçük resim / toplu küçültme | `image.rs` | `RustCore.thumbnail` |
 | Hızlı Paylaş alma sunucusu (`POST /u`, `GET /m`, `GET /f`, `DELETE /x`, `POST /d`), ad temizleme, `.part` → son ad | `qshare_core/src/share/server.rs`, `proto.rs` | `RustShare.Server` (`QuickShare.start`) |
 | Dosya/klasör gönderme (klasör → `ditto` ile zip) | `qshare_core/src/share/client.rs` | `RustShare.send` (`QuickShare.send`) |
 | Notlarım eşitleme: manifesto, 3 mod, güvenli yol çözümleme, paralel toplu aktarım | `qshare_core/src/share/sync.rs`, `proto.rs` | `RustShare.sync`, `NoteSync.resolve` |
@@ -97,7 +94,7 @@ gizli klasörler atlanır, `ad (2).uzantı`). `plan_qs_*` C ABI'si değişmedi, 
 `qshare_core` iki repoda aynı dizinde (`qshare_core/`) durur. Tek kaynaktan yönetmek için git submodule yapılabilir:
 `git submodule add <qshare_core-repo-adresi> qshare_core` (CI'da `actions/checkout` adımına `submodules: true` eklenir).
 
-Testler: `cd qshare_core && cargo test` (protokol, eşitleme) ve `cd rust/plan_core && cargo test` (arama, tarama, hash, resim).
+Testler: `cd qshare_core && cargo test` (protokol, eşitleme) ve `cd rust/plan_core && cargo test` (arama).
 Unicode tabloları `qshare_core/tools/gen_unicode.py` ile üretilir.
 
 ## Derleme

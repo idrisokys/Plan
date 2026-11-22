@@ -1,9 +1,0 @@
-[package]
-name = "plan-core"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-description = "Plan / Notlarım çekirdeği: depolama, arama, eşitleme ve Hızlı Paylaş protokolü (yalnızca std)"
-
-[lib]
-name = "plan_core"

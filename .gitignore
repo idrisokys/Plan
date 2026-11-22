@@ -1,3 +1,5 @@
-target/
-plan-gui/target/
-Cargo.lock.bak
+.build/
+build/
+Plan.app/
+Plan-macOS.zip
+.DS_Store

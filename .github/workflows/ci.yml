@@ -1,17 +1,84 @@
 name: ci
-on: [push, pull_request]
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # v* etiketi gelince Release oluşturabilmek için
+
+env:
+  MACOSX_DEPLOYMENT_TARGET: "15.0"
+
 jobs:
-  test:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+  # Apple Silicon (arm64), macOS 15 ve sonrası
+  app-macos:
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - run: cargo test --workspace
-  gui:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libxdo-dev libayatana-appindicator3-dev
-      - run: cargo build --manifest-path plan-gui/Cargo.toml
+      - run: rustup target add aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: plan-gui
+      - name: Test
+        run: cargo test --workspace
+      - name: Derle
+        run: cargo build --release --manifest-path plan-gui/Cargo.toml --target aarch64-apple-darwin
+      - name: Plan.app paketle
+        run: |
+          APP="dist/Plan.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp plan-gui/target/aarch64-apple-darwin/release/plan-gui "$APP/Contents/MacOS/plan-gui"
+          chmod +x "$APP/Contents/MacOS/plan-gui"
+
+          # AppIcon.png -> AppIcon.icns
+          ICONSET="$RUNNER_TEMP/AppIcon.iconset"
+          mkdir -p "$ICONSET"
+          for s in 16 32 128 256 512; do
+            sips -z $s $s assets/AppIcon.png --out "$ICONSET/icon_${s}x${s}.png"
+            sips -z $((s*2)) $((s*2)) assets/AppIcon.png --out "$ICONSET/icon_${s}x${s}@2x.png"
+          done
+          iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+
+          cat > "$APP/Contents/Info.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>Plan</string>
+            <key>CFBundleDisplayName</key><string>Plan</string>
+            <key>CFBundleIdentifier</key><string>com.plan.notlarim</string>
+            <key>CFBundleExecutable</key><string>plan-gui</string>
+            <key>CFBundleIconFile</key><string>AppIcon</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>2.0.0</string>
+            <key>CFBundleVersion</key><string>2.0.0</string>
+            <key>LSMinimumSystemVersion</key><string>15.0</string>
+            <key>LSArchitecturePriority</key><array><string>arm64</string></array>
+            <key>NSHighResolutionCapable</key><true/>
+            <key>LSUIElement</key><true/>
+            <key>CFBundleURLTypes</key>
+            <array>
+              <dict>
+                <key>CFBundleURLName</key><string>Plan</string>
+                <key>CFBundleURLSchemes</key><array><string>plan</string></array>
+              </dict>
+            </array>
+          </dict>
+          </plist>
+          PLIST
+
+          # Geliştirici hesabı olmadan çalışabilmesi için ad-hoc imza
+          codesign --force --deep --sign - "$APP"
+          cd dist && ditto -c -k --keepParent Plan.app Plan-macOS-arm64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Plan-macOS-arm64
+          path: dist/Plan-macOS-arm64.zip
+      - name: Release (v* etiketi)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Plan-macOS-arm64.zip

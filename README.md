@@ -1,70 +1,63 @@
-# Plan — macOS menü çubuğu: arama + not ekleme + paylaşım + Notlarım
+# Plan — Rust yeniden yazımı
 
-Tek uygulama, iki parça:
-
-1. **Menü çubuğu paneli** (Plan): arama, hızlı not/link ekleme, Hızlı Paylaş.
-2. **Notlarım** : notlar ve linkler için tam pencere. Artık ayrı bir uygulama değil; panelin
-   üstündeki **kalem** düğmesi bu uygulamanın içindeki Notlarım penceresini açar.
-
-## Menü çubuğu paneli
-
-- Üst çubuk: [Paylaş] [arama kutusu] [Kalem] [✕]. Kalem = **Notlarım penceresini** açar; Kapat (✕) uygulamayı tamamen kapatır. Paylaşım açılınca cihaz listesinin altında, "ON" simgesinin hizasında **Eşitle ⇄** düğmesi çıkar.
-  Yazınca en çok 3 not + (sorgu · + · eklenen motorlar) satırı çıkar.
-- Arama motoru ekle: Arama satırındaki + → ad ve adres (`%s` aranan kelimenin yerine geçer) yaz, Ekle. Yeni motor ilk harfiyle
-  en sağda görünür (sağ tık → Sil).
-- Enter / "Ekle": link ise `~/Link/Url` klasörüne .url (Notlarım'da başka bir alt klasörün içindeyken orada kalır), kısa metin not, 116 karakterden uzunsa .txt olarak kaydeder.
-- Satırın üstüne gelince: Paylaş, Kopyala, Çöpe at. Linke tıkla = tarayıcıda açılır.
-- Herhangi bir uygulamada metin seç → Hizmetler → **"Notlarıma Kaydet"** (ilk seferde Sistem Ayarları > Klavye >
-  Klavye Kısayolları > Hizmetler'den açman gerekebilir). Link ise sayfa başlığı otomatik alınır.
-- Hızlı Paylaş (Android'deki aynı protokol): soldaki anten düğmesi = ağdan dosya almayı aç/kapat (açıkken açık mavi "ON"). Paylaşım ekranındaki "Alındı" satırına tıklayınca dosyanın kaydedildiği klasör açılır. Paylaşım açıkken altta açık cihazlar listelenir; klasör simgesiyle dosya gönderirsin.
-
-- Menü çubuğu simgesine sağ tık: **Notlarım**, **Kayıt yeri** (paylaşımla gelen dosyaların klasörünü seç), **Notlarım klasörü** (~/Link'i Finder'da aç), Çık.
-
-## Notlarım penceresi
-
-Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere varsayılan olarak her zaman en üstte durur. Uygulama Dock'ta görünmez, yalnızca menü çubuğunda yaşar.
-
-- Notlar `~/Link` klasöründe; Android'deki Link klasörüyle aynı biçim. Klasörler, yeniden adlandırma, taşıma, sıralama.
-- Görünüm ve düğmeler Android'deki Notlarım ekranıyla aynıdır (aynı Material simgeleri, koyu tema): üst çubukta başlık ile **klasör ekle**, **U**, **D**, **yenile**; satırda soldaki simge (klasör / link / metin dosyası) ve sağdaki ⋮.
-- Satırın sağındaki ⋮: Sabitle / Taşı / Paylaş / Sil. Sabitlenen öğenin ⋮ simgesi koyu kırmızı olur. **U**: içinde bulunulan klasör linklerin varsayılan kayıt yeri olur (varsayılan: `~/Link/Url`). **D**: içinde bulunulan klasör diğer kayıtların (kısa metin ve .txt) varsayılan kayıt yeri olur (varsayılan: `~/Link`). İkisi de yalnızca kök klasörden eklerken geçerlidir; başka bir alt klasörün içindeyken kayıt orada kalır.
-- Alt çubuk: çerçeveli ekleme alanı (Enter: kaydet), altında sayaç, **iç içe iki halka** (düzenleme / çoklu seçim / sıralama modu), ara, temizle, yapıştır. Düzenleme modunda satıra dokunarak seç; tek satır seçiliyse adı alttaki alanda düzenlenir (Kaydet), birden çoksa başa al / yukarı / aşağı / sona al düğmeleri çıkar. Sağ üstteki raptiye pencerenin her zaman üstte kalmasını açar/kapatır (varsayılan: kapalı; yalnızca Mac penceresine özgü).
-- Paylaş: seçili notların dosyaları (.txt / .url) **Hızlı Paylaş** ile ağdaki açık cihaza gönderilir (Android'deki Paylaş penceresi); Hızlı Paylaş kapalıysa pencerede "Aç" düğmesi çıkar.
-- Sil = silmez; `~/.onemsiz` gizli klasörüne taşır.
-- Araç çubuğu: en solda başlık (Notlarım ya da klasör adı), sağında klasör ekle, U, D, yenile. Menü çubuğu paneli Notlarım açıkken pencereyi kapatmasın diye sola kayar.
-- Kısa not satırına tıklamak metni panoya kopyalar; satıra uzun basmak kopyalar.
-- `.txt` içinde arama (⌘F), eşleşmeler işaretli, ▲▼ ile gezinme.
-- Eşitleme: Hızlı Paylaş açıkken cihaz listesinin üstündeki ⇄ simgesi; açılan pencerede cihazlar işaretlenir ve "Bu cihaza göre / Karşıdaki cihaza göre / İki cihazda aynı olsun" seçilir. `~/Link` içeriği (Android'deki `<ana dizin>/Link` ile) eşitlenir; silinenler Çöp Kutusu'na gider.
-- Paylaş menüsü: Safari/Paylaş menüsünde **Notlarım** (uygulamanın içindeki `PlanShare.appex` eklentisi).
-- Dosya paylaşımı: **Finder'da** dosya(lar)ı seç → Paylaş → **Notlarım**: açık cihazlar paneli açılır, cihaza dokununca dosyalar gönderilir (klasörler zip'lenir).
-- Adres şeması: `plan://add?t=…` ve `plan://search?q=…`.
-- Chrome eklentisi: `chrome-extension/` klasörü uygulamanın içine konur. Notlarım penceresi açıkken menü çubuğunda
-  **Notlarım → Chrome Eklentisi Klasörünü Aç**. Kurulum: [chrome-extension/README.md](chrome-extension/README.md).
-
-## Klasör yapısı
+macOS menü çubuğu uygulaması **Plan / Notlarım**'ın (SwiftUI + AppKit) Rust karşılığı.
+Mantığın tamamı **yalnızca standart kütüphaneyle** yazılmış bir çekirdek kütüphanede; üstünde bir CLI ve
+(ayrı, dış bağımlılıklı) bir egui arayüzü var.
 
 ```
-Package.swift            # Plan (uygulama) + PlanTests
-Info.plist, version.env  # Tek Info.plist; sürüm numarası version.env'de
-build.sh                 # Plan.app + Plan-macOS.zip (yalnızca Apple Silicon / arm64, ad-hoc imzalı)
-scripts/build_share.sh   # Paylaş eklentisini derler (build.sh çağırır)
-ShareExtension/          # Safari/Paylaş menüsü eklentisi (ayrı derlenir)
-chrome-extension/        # Chrome eklentisi (uygulamanın içine konur)
-Resources/               # Simgeler, tr/en ServicesMenu.strings
-Sources/Plan/
-├── App.swift            # Giriş: Notlarım penceresi (Window), menü çubuğu simgesi (StatusItemController), AppDelegate, Hizmetler
-├── ContentView.swift    # Arama çubuğu (ekleme/arama Notlarım ile ortak: NotesStore.submit / searchAsync)
-├── FloatingBar.swift    # Arama çubuğunu sağ alt köşeye sabitleyen yüzen panel; menü çubuğu simgesi göster/gizle
-├── QuickShare.swift     # Hızlı Paylaş
-└── Notlarim/            # Notlarım kodu (Models, Store, Services, ViewModel, Views, Support)
-Tests/PlanTests/      # Notlarım depolama katmanı testleri
+plan-core/   Çekirdek (std-only): depolama, arama, eşitleme, Hızlı Paylaş sunucu/istemci, ayarlar
+plan-cli/    `plan` komut satırı (aynı çekirdek)           → cargo build -p plan-cli
+plan-gui/    egui + tray-icon + mdns-sd arayüzü            → cargo build --manifest-path plan-gui/Cargo.toml
+chrome-extension/   Değişmedi (plan://add?t=…&s=… adresini kullanır)
 ```
 
-Notlarım kodundaki çakışan adlar yeniden adlandırıldı: `Store` → `NotesStore`, `Model` → `NotesModel`,
-`ContentView` → `NotesContentView`.
+## Durum
 
-## Derleme
+| Parça | Durum |
+|---|---|
+| plan-core | Derlendi, **39 test geçiyor** (Swift testlerinin portu + eşitleme/sunucu entegrasyon testleri) |
+| plan-cli | Derlendi, elle denendi |
+| plan-gui | **Henüz derlenmedi** — yazıldığı ortamda crates.io erişimi yoktu. eframe/egui 0.29, tray-icon 0.19, mdns-sd 0.11 API'sine göre yazıldı; ilk derlemede küçük düzeltmeler gerekebilir |
+
+## Swift → Rust eşlemesi
+
+| Swift | Rust |
+|---|---|
+| `NotesStore` (+Naming/Reading/Submit) | `store.rs`, `text.rs` |
+| `NotesStore+Search`, `NotesModel+Txt` (arama) | `search.rs` |
+| `PageTitle` | `pagetitle.rs` (indirme `curl` ile, ayrıştırma saf Rust) |
+| `NoteSync` | `sync.rs` |
+| `QuickShare` (sunucu + gönderme) | `quickshare.rs`, `net.rs` |
+| `NotesModel+Reorder` | `reorder.rs` |
+| `SearchEngine`, `plan://` şeması | `engines.rs` |
+| `UserDefaults` | `config.rs` |
+| SwiftUI görünümleri | `plan-gui/src/main.rs` |
+
+Tel biçimi (HTTP uç noktaları, başlıklar, manifest satırları, mDNS adı/TXT alanları) birebir korunduğundan
+Android uygulaması ve eski Swift sürümüyle birlikte çalışmalıdır.
+
+## Bilinçli farklar
+
+- **`.pinned.txt` artık eşitlenmez.** Swift kodunda yorum "yalnızca bu cihazda, eşitlenmez" diyor ama dosya
+  `.txt` olduğu için manifeste giriyordu. Rust'ta hariç tutuldu.
+- **Çöp Kutusu yerine `~/.onemsiz`.** Eşitlemeyle silinen öğeler de buraya taşınır (`trashItem` karşılığı std'de yok).
+- **mDNS** çekirdekte değil GUI katmanında (`plan-gui/src/share.rs`, `mdns-sd`). CLI'da cihaz `--peer host:port` ile verilir.
+- **NFC/NFD:** std'de Unicode normalizasyonu yok; Türkçe dahil Latin-1/Latin Genişletilmiş-A için küçük bir
+  birleştirme tablosu var (`text.rs`). Daha geniş kapsam için `unicode-normalization` eklenebilir.
+- Sayfa başlığı kodlamaları: UTF-8, Latin-1, ISO-8859-9/Windows-1254 (Türkçe) desteklenir; diğerleri UTF-8 sayılır.
+- **macOS'a özgü olanlar taşınmadı:** Paylaş eklentisi (`ShareExtension`), Hizmetler menüsü, Rehber araması
+  (`ContactSearch`), sağ alt köşe yüzen çubuk (`FloatingBar`). `plan://` şemasının işletim sistemine
+  kaydı paketleme aşamasında yapılır (macOS `Info.plist` → `CFBundleURLTypes`; Linux `.desktop` MimeType).
+- README'deki **U / D** (varsayılan kayıt klasörü) düğmeleri Swift kaynağında yer almıyordu; taşınmadı.
+
+## Kullanım
 
 ```bash
-./build.sh            # Xcode veya Command Line Tools gerekir
-swift test            # birim testleri
+cargo test --workspace
+cargo run -p plan-cli -- add "https://example.com"
+cargo run -p plan-cli -- search çay
+cargo run -p plan-cli -- serve                      # Hızlı Paylaş sunucusu
+cargo run -p plan-cli -- sync --peer 192.168.1.20:PORT --mode 0
 ```
+
+Ortam değişkenleri: `PLAN_ROOT` (varsayılan `~/Link`), `PLAN_CONFIG_DIR`.

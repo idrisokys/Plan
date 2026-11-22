@@ -1,0 +1,11 @@
+[workspace]
+members = ["plan-core", "plan-cli"]
+# plan-gui bilerek çalışma alanının dışında: egui/tray-icon gibi dış bağımlılıkları var
+# ve çekirdek + CLI yalnızca standart kütüphaneyle (çevrimdışı) derlenebilsin.
+exclude = ["plan-gui"]
+resolver = "2"
+
+[workspace.package]
+version = "2.0.0"
+edition = "2021"
+license = "MIT"

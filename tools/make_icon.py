@@ -158,121 +158,99 @@ def superellipse(cx, cy, a, n=5.0, k=360):
 
 
 def build():
-    INK = "#4B2108"        # koyu kahverengi çizgi
-    # --- zemin -------------------------------------------------------------
+    """Koyu zemin üzerinde 3B büyüteç: gümüş çerçeve, koyu mavi cam, siyah saplı."""
+    cx, cy = 440, 428                     # büyüteç merkezi
+    TH = math.radians(43)                 # sap yönü (aşağı-sağ)
+    ux, uy = math.cos(TH), math.sin(TH)   # sap ekseni
+    nx, ny = -uy, ux                      # eksene dik
+
+    def P(u, v):                          # yerel (eksen, dik) -> global
+        return (cx + ux * u + nx * v, cy + uy * u + ny * v)
+
+    def seg_rect(u0, u1, w0, w1=None, r=0.0):
+        """Eksen boyunca u0..u1, genişliği w0 (uçta w1) olan, köşeleri yuvarlak şerit."""
+        w1 = w0 if w1 is None else w1
+        pts = [P(u0, -w0 / 2), P(u1, -w1 / 2), P(u1, w1 / 2), P(u0, w0 / 2)]
+        return poly(pts)
+
+    def across(u, w, stops):              # eksene dik (sapın enine) degrade
+        a, b = P(u, -w / 2), P(u, w / 2)
+        return Lin(a[0], a[1], b[0], b[1], stops)
+
+    DY0 = 0
+
+    # --- zemin: koyu lacivert-siyah yuvarlak kare -------------------------------------
     body = superellipse(512, 512, 412, 5.0)
-    add(body, fill=Lin(512, 100, 512, 924, [(0, "#2D9CFF"), (0.38, "#0B55CC"), (0.78, "#08317F"), (1, "#061E55")]),
+    add(body, fill=Lin(512, 100, 512, 924, [(0, "#262A40"), (0.35, "#161824"), (1, "#0A0B11")]),
         shadow=(0, 14, 16, 0.45), dy=0)
-    add(body, fill=Rad(512, 150, 540, [(0, "#FFFFFF", 0.38), (0.55, "#FFFFFF", 0.06), (1, "#FFFFFF", 0.0)]),
+    add(body, fill=Rad(512, 140, 560, [(0, "#8FA6E8", 0.16), (0.5, "#8FA6E8", 0.03), (1, "#8FA6E8", 0.0)]),
         clip=body, dy=0)
-    add(body, stroke="#FFFFFF", sw=4, op=0.22, clip=body, dy=0)
+    add(body, stroke="#B9C6F5", sw=4, op=0.20, clip=body, dy=0)
 
-    # --- kitabın altındaki zemin gölgesi ----------------------------------------
-    add(ellipse(512, 770, 340, 34), fill="#02123A", op=0.45, shadow=(0, 0, 18, 0.5))
+    # --- çerçevenin arkasındaki mavi ışıma --------------------------------------------
+    add(ellipse(cx, cy, 250, 250), fill=Rad(cx, cy, 250,
+        [(0.78, "#5E8DFF", 0.0), (0.84, "#5E8DFF", 0.16), (1.0, "#5E8DFF", 0.0)]), dy=DY0)
 
-    # --- kitap -------------------------------------------------------------------
-    add(rrect(196, 376, 632, 372, 30), fill=Lin(512, 376, 512, 748, [(0, "#CB7A2C"), (1, "#7E3E12")]),
-        stroke=INK, sw=8, shadow=(0, 16, 14, 0.45))
-    add(rrect(212, 392, 600, 340, 22), stroke="#E7A85C", sw=4, op=0.55)
+    # --- sap (çerçeveden önce çizilir; çerçeve boyunun üstüne biner) -------------------
+    # boyun
+    neck = seg_rect(190, 268, 30)
+    add(neck, fill=across(230, 30, [(0, "#5B606C"), (0.35, "#E6E9EF"), (0.6, "#9097A3"), (1, "#3C404A")]),
+        stroke="#23262E", sw=3, shadow=(6, 12, 10, 0.5), dy=DY0)
+    # tutacak (mat siyah)
+    grip = seg_rect(286, 470, 60)
+    add(grip, fill=across(380, 60, [(0, "#2B2D34"), (0.30, "#4A4D56"), (0.55, "#1B1C21"), (1, "#0E0F13")]),
+        stroke="#050609", sw=4, shadow=(8, 16, 14, 0.55), dy=DY0)
+    # tutacağın üstündeki yumuşak ışık çizgisi
+    ha, hb = P(300, -17), P(458, -17)
+    add(poly([ha, hb], False), stroke="#8A8E9A", sw=5, op=0.35, dy=DY0)
+    # boyun ile tutacak arası gümüş yaka
+    for (u0, u1, w) in ((262, 276, 38), (276, 290, 54)):
+        add(seg_rect(u0, u1, w), fill=across((u0 + u1) / 2, w,
+            [(0, "#4A4E58"), (0.30, "#F4F6FA"), (0.60, "#A5ABB6"), (1, "#41454F")]),
+            stroke="#262932", sw=3, dy=DY0)
+    # uç kapak
+    add(seg_rect(466, 500, 58), fill=across(483, 58,
+        [(0, "#4C505B"), (0.30, "#F2F4F8"), (0.62, "#A2A8B3"), (1, "#3E424C")]),
+        stroke="#262932", sw=3, dy=DY0)
+    # uç yüzey: mavi parıltı
+    ex, ey = P(499, 0)
+    add(ellipse(ex, ey, 9, 24, math.degrees(TH)), fill=Rad(ex, ey, 26,
+        [(0, "#CFE0FF"), (0.5, "#6D9BF0"), (1, "#2D4F9E")]), stroke="#1E2840", sw=2, dy=DY0)
 
-    left = (Path().M(512, 404).C(470, 372, 372, 360, 258, 384).L(258, 690)
-            .C(372, 664, 470, 676, 512, 710).Z())
-    right = mirror(left)
-    for pg in (shift(left, 0, 16), shift(right, 0, 16)):                   # sayfa destesi
-        add(pg, fill="#DDBF8C", stroke="#5A2A0C", sw=7)
-    add(left, fill=Lin(258, 0, 512, 0, [(0, "#FFF7E4"), (1, "#F0DBB2")]), stroke="#5A2A0C", sw=7)
-    add(right, fill=Lin(766, 0, 512, 0, [(0, "#FFF7E4"), (1, "#F0DBB2")]), stroke="#5A2A0C", sw=7)
-    add(poly([(512, 404), (512, 710)], False), stroke="#C7A06A", sw=6)
+    # --- gümüş çerçeve ----------------------------------------------------------------
+    R_OUT, R_MID, R_IN, R_GLASS = 204, 182, 168, 160
+    add(ellipse(cx, cy, R_OUT, R_OUT),
+        fill=Lin(cx - 170, cy - 190, cx + 170, cy + 190,
+                 [(0, "#FFFFFF"), (0.28, "#D4D8DF"), (0.55, "#8D929D"), (0.78, "#C9CDD5"), (1, "#EEF0F4")]),
+        stroke="#3A3E48", sw=4, shadow=(8, 16, 16, 0.6), dy=DY0)
+    # iç eğim (ışık yönü ters: sol-üstte koyu, sağ-altta açık)
+    add(ellipse(cx, cy, R_MID, R_MID),
+        fill=Lin(cx - 150, cy - 160, cx + 150, cy + 160,
+                 [(0, "#7A808C"), (0.45, "#BCC1CA"), (1, "#F6F7FA")]), dy=DY0)
+    add(ellipse(cx, cy, R_IN, R_IN), fill="#0A0D18", dy=DY0)
+    # dış kenarda ince parlak çizgi
+    add(ellipse(cx, cy, R_OUT - 5, R_OUT - 5), stroke="#FFFFFF", sw=3, op=0.55, dy=DY0)
 
-    for i in range(4):                                                      # sol sayfa yazı çizgileri
-        y = 444 + i * 44
-        add(Path().M(300, y + 6).C(340, y - 6, 392, y - 8, 430, y + 2), stroke="#D8BC8E", sw=8)
-    for i in range(5):                                                      # sağ sayfa yazı çizgileri
-        y = 442 + i * 44
-        add(Path().M(584, y + 2).C(622, y - 8, 676, y - 6, 722, y + 6), stroke="#D8BC8E", sw=8)
-
-    ribbon = Path().M(440, 366).L(506, 376).L(506, 508).L(473, 484).L(440, 508).Z()
-    add(ribbon, fill=Lin(440, 366, 506, 508, [(0, "#54B0FF"), (1, "#1B6BD0")]), stroke="#0F3F85", sw=6,
-        shadow=(2, 6, 5, 0.35))
-
-    # --- büyüteç -----------------------------------------------------------------
-    cx, cy = 378, 612
-    hx0, hy0, hx1, hy1 = 462, 696, 562, 800
-    add(poly([(hx0, hy0), (hx1, hy1)], False), stroke="#4A2208", sw=58, shadow=(0, 14, 12, 0.4))
-    add(poly([(hx0, hy0), (hx1, hy1)], False), stroke=Lin(440, 700, 580, 800, [(0, "#B76F36"), (1, "#7A3F18")]), sw=42)
-    add(poly([(hx0 - 6, hy0 - 6), (hx1 - 6, hy1 - 8)], False), stroke="#D79A60", sw=8, op=0.7)
-    add(poly([(hx0 + 10, hy0 + 10), (hx0 + 34, hy0 + 36)], False), stroke="#4A2208", sw=54)
-    add(poly([(hx0 + 10, hy0 + 10), (hx0 + 34, hy0 + 36)], False), stroke="#F3B93A", sw=40)
-
-    ring = ellipse(cx, cy, 124, 124)
-    glass = ellipse(cx, cy, 94, 94)
-    add(ring, fill=Lin(260, 500, 500, 724, [(0, "#FFE680"), (0.5, "#F5B72E"), (1, "#D98A14")]),
-        stroke="#6B3A08", sw=8, shadow=(0, 14, 12, 0.4))
-    add(ellipse(cx, cy, 100, 100), fill="#8A5A10")
-    add(glass, fill=Rad(cx - 40, cy - 44, 150, [(0, "#FFFFFF", 0.95), (0.55, "#CFE0F6", 0.9), (1, "#8FB0DE", 0.92)]),
-        stroke="#7A5A1A", sw=4)
-    for i, y in enumerate((594, 636, 678)):                                 # camın içinde büyüyen yazı
-        add(Path().M(280, y + 8).C(330, y - 6, 420, y - 6, 476, y + 6), stroke="#6F88B0", sw=9, op=0.5, clip=glass)
-    add(ellipse(cx - 38, cy - 48, 44, 20, -38), fill="#FFFFFF", op=0.7)
-
-    # --- tüy kalem ---------------------------------------------------------------
-    P0, P1, P2 = (700, 872), (728, 610), (872, 236)
-
-    def B(t):
-        u = 1 - t
-        return (u*u*P0[0] + 2*u*t*P1[0] + t*t*P2[0], u*u*P0[1] + 2*u*t*P1[1] + t*t*P2[1])
-
-    def nrm(t):
-        u = 1 - t
-        tx = 2*u*(P1[0]-P0[0]) + 2*t*(P2[0]-P1[0])
-        ty = 2*u*(P1[1]-P0[1]) + 2*t*(P2[1]-P1[1])
-        l = math.hypot(tx, ty)
-        return (-ty / l, tx / l)                 # sağa bakan normal
-
-    T0, WL, WR, NS = 0.30, 84, 98, 34
-    NOTCH = {(1, 9): 0.52, (1, 16): 0.50, (1, 23): 0.55, (-1, 12): 0.55, (-1, 20): 0.55}
-
-    def width(s):
-        return math.sin(math.pi * (s ** 0.75)) ** 0.85
-
-    def side(sign, wmax):
-        pts = []
-        for i in range(NS + 1):
-            s = i / NS
-            t = T0 + (1 - T0) * s
-            tooth = (1.0 if i % 2 == 0 else 0.90) * NOTCH.get((sign, i), 1.0)
-            tt = min(1.0, t + (0.012 if i % 2 else 0))
-            bx, by = B(tt); nx, ny = nrm(tt)
-            w = wmax * width(s) * tooth
-            pts.append((bx + sign * nx * w, by + sign * ny * w))
-        return pts
-
-    left_pts = side(-1, WL)
-    right_pts = side(+1, WR)
-    vane = poly(left_pts + right_pts[::-1])
-    add(vane, fill=Lin(700, 820, 900, 250, [(0, "#F4A323"), (0.5, "#FFC93C"), (1, "#FFE98A")]),
-        stroke="#6B3A08", sw=7, shadow=(0, 14, 14, 0.4))
-    for k in range(1, 12):                                                  # tüy telleri
-        s = k / 12
-        t = T0 + (1 - T0) * s
-        bx, by = B(t)
-        for sign, wmax in ((-1, WL), (1, WR)):
-            tt = min(1.0, t + 0.07)
-            ex, ey = B(tt); nx, ny = nrm(tt)
-            w = wmax * width(min(1.0, s + 0.07)) * 0.78
-            add(poly([(bx, by), (ex + sign * nx * w, ey + sign * ny * w)], False),
-                stroke="#C77F18", sw=4, op=0.55)
-    shaft = poly([B(0.12 + 0.88 * i / 40) for i in range(41)], False)
-    add(shaft, stroke="#6B3A08", sw=19)
-    add(shaft, stroke="#FFE9A0", sw=10)
-
-    # uç (nib)
-    nl = (B(0.20)[0] + nrm(0.20)[0] * -17, B(0.20)[1] + nrm(0.20)[1] * -17)
-    nr = (B(0.20)[0] + nrm(0.20)[0] * 17, B(0.20)[1] + nrm(0.20)[1] * 17)
-    nib = poly([B(0.0), nl, nr])
-    add(nib, fill=Lin(690, 780, 740, 880, [(0, "#FFE27A"), (1, "#E9A21F")]), stroke="#6B3A08", sw=6)
-    add(poly([B(0.015), B(0.14)], False), stroke="#6B3A08", sw=4)
-    add(ellipse(B(0.17)[0], B(0.17)[1], 5, 5), fill="#6B3A08")
+    # --- cam --------------------------------------------------------------------------
+    glass = ellipse(cx, cy, R_GLASS, R_GLASS)
+    add(glass, fill=Rad(cx - 60, cy - 70, 300,
+        [(0, "#5878B0"), (0.30, "#2C3F69"), (0.70, "#141B31"), (1, "#0B0F1E")]), dy=DY0)
+    # sağ-alt kenardaki mavi ışık halkası
+    add(ellipse(cx, cy, R_GLASS - 5, R_GLASS - 5),
+        stroke=Lin(cx - 120, cy - 120, cx + 130, cy + 130,
+                   [(0, "#7DB0FF", 0.0), (0.55, "#7DB0FF", 0.0), (0.85, "#8DBBFF", 0.75), (1, "#B5D3FF", 0.95)]),
+        sw=9, clip=glass, dy=DY0)
+    # sol-üst parlama alanı
+    glare = (Path().M(cx - 150, cy - 40)
+             .C(cx - 140, cy - 105, cx - 85, cy - 148, cx - 20, cy - 158)
+             .C(cx - 40, cy - 110, cx - 80, cy - 70, cx - 150, cy - 40).Z())
+    add(glare, fill=Lin(cx - 150, cy - 150, cx - 30, cy - 50,
+        [(0, "#FFFFFF", 0.55), (1, "#FFFFFF", 0.04)]), clip=glass, dy=DY0)
+    # üstteki kavisli yansıma çizgisi
+    add(Path().M(cx - 120, cy - 105).C(cx - 80, cy - 130, cx - 30, cy - 135, cx + 15, cy - 118),
+        stroke="#FFFFFF", sw=4, op=0.40, clip=glass, dy=DY0)
+    # küçük parlak nokta
+    add(ellipse(cx - 78, cy - 98, 26, 10, -35), fill="#FFFFFF", op=0.55, clip=glass, dy=DY0)
 
 
 # ----------------------------------------------------------------------------- PNG çizimi
@@ -401,4 +379,11 @@ if __name__ == "__main__":
     out = os.path.join(ROOT, "Resources")
     render_svg(os.path.join(out, "AppIcon.svg"))
     render_png(os.path.join(out, "AppIcon.png"))
+    # Menü çubuğu simgesi: ana simgenin küçüğü (zemin kareyi kırpıp küçültür)
+    big = Image.open(os.path.join(out, "AppIcon.png")).convert("RGBA")
+    crop = big.crop((84, 84, 940, 940))
+    for name, px in (("MenuIcon.png", 44), ("MenuIcon@3x.png", 66)):
+        crop.resize((px, px), Image.LANCZOS).save(os.path.join(out, name))
+    for px in (16, 32, 48, 128):                      # Chrome eklentisi simgeleri
+        crop.resize((px, px), Image.LANCZOS).save(os.path.join(ROOT, "chrome-extension", "icons", f"icon{px}.png"))
     print("tamam:", len(SHAPES), "şekil")

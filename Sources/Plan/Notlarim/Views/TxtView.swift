@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// .txt dosyasını tüm pencerede gösterir. Sağ üstteki kalemle düzenlenir, kaydet simgesiyle kaydedilip okumaya dönülür.
+/// .txt dosyasını tüm pencerede gösterir. Alt çubuktaki kalemle düzenlenir, kaydet simgesiyle kaydedilip okumaya dönülür.
 /// Okuma görünümünde arama (büyüteç): eşleşmeler işaretlenir, ▲▼ ile gezilir.
 struct TxtView: View {
     @EnvironmentObject var m: NotesModel
@@ -10,7 +10,8 @@ struct TxtView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            titleRow
+            // Üst satır kaldırıldı; yalnızca trafik ışıklarının altında metin kalmasın diye boş şerit
+            Color.clear.frame(height: 28)
             Group {
                 if m.txtEditing {
                     TextEditor(text: $m.txtDraft)
@@ -25,6 +26,7 @@ struct TxtView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            bottomBar
         }
         .ignoresSafeArea(.container, edges: .top)
         .background(NT.bg)
@@ -40,49 +42,51 @@ struct TxtView: View {
         }
     }
     
-    /// Üst satır: sistem araç çubuğu yerine içerikte durur; pencere daralınca simgeler kaybolmaz.
-    private var titleRow: some View {
-        TitleBarRow {
+    /// Alt çubuk (küçük): soldan sağa Geri, Düzenle, Ara, Kopyala. Düzenlerken Düzenle yerine Kaydet görünür.
+    /// Arama açıkken çubuk arama alanına dönüşür.
+    private var bottomBar: some View {
+        HStack(spacing: 0) {
             IconBtn(MI.arrowBack, help: L("Geri", "Back"), box: ToolbarMetrics.box) { m.txtBack() }
-            PinWindowButton()
-            if !(m.txtSearching && !m.txtEditing) {
-                Text(m.txt?.title ?? "")
-                    .font(.system(size: 20))
-                    .foregroundStyle(NT.onSurface)
-                    .lineLimit(1).truncationMode(.tail)
-                    .padding(.leading, 6)
-            }
-        } trailing: {
-            if m.txtEditing {
-                IconBtn(MI.save, tint: NT.primary, help: L("Kaydet (⌘S)", "Save (⌘S)"), box: ToolbarMetrics.box) { m.txtSave() }
-                    .keyboardShortcut("s", modifiers: .command)
-                    .disabled(m.txtSaving)
-            } else if m.txtSearching {
+            if m.txtSearching && !m.txtEditing {
                 TextField(L("Metinde ara", "Search in text"), text: $m.txtQuery)
                     .textFieldStyle(.roundedBorder)
-                    .frame(minWidth: 70, maxWidth: 110)
+                    .frame(minWidth: 70, maxWidth: 160)
                     .focused($searchFocused)
                     .onSubmit { m.txtGo(1) }
+                    .padding(.trailing, 6)
                 if !m.txtQuery.trimmed.isEmpty {
                     Text(m.txtMatches.isEmpty ? "0" : "\(m.txtCur + 1)/\(m.txtMatches.count)")
                         .font(.system(size: 13, weight: .medium)).foregroundStyle(NT.onSurface)
                         .fixedSize()
+                        .padding(.trailing, 4)
                 }
                 IconBtn(MI.arrowUp, help: L("Önceki", "Previous"), box: ToolbarMetrics.box) { m.txtGo(-1) }
                     .disabled(m.txtMatches.isEmpty)
                 IconBtn(MI.arrowDown, help: L("Sonraki", "Next"), box: ToolbarMetrics.box) { m.txtGo(1) }
                     .disabled(m.txtMatches.isEmpty)
                 IconBtn(MI.close, help: L("Aramayı kapat", "Close search"), box: ToolbarMetrics.box) { m.txtCloseSearch() }
+                Spacer(minLength: 0)
             } else {
+                if m.txtEditing {
+                    IconBtn(MI.save, tint: NT.primary, help: L("Kaydet (⌘S)", "Save (⌘S)"), box: ToolbarMetrics.box) { m.txtSave() }
+                        .keyboardShortcut("s", modifiers: .command)
+                        .disabled(m.txtSaving)
+                } else {
+                    IconBtn(MI.edit, help: L("Düzenle (⌘E)", "Edit (⌘E)"), box: ToolbarMetrics.box) { m.txtStartEdit() }
+                    IconBtn(MI.search, help: L("Ara (⌘F)", "Search (⌘F)"), box: ToolbarMetrics.box) { m.txtSearching = true }
+                }
                 IconBtn(MI.contentCopy, help: L("Kopyala", "Copy"), box: ToolbarMetrics.box) {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(m.txtSaved, forType: .string)
+                    NSPasteboard.general.setString(m.txtEditing ? m.txtDraft : m.txtSaved, forType: .string)
                     HUD.show(L("Kopyalandı", "Copied"))
                 }
-                IconBtn(MI.search, help: L("Ara (⌘F)", "Search (⌘F)"), box: ToolbarMetrics.box) { m.txtSearching = true }
-                IconBtn(MI.edit, help: L("Düzenle (⌘E)", "Edit (⌘E)"), box: ToolbarMetrics.box) { m.txtStartEdit() }
+                Spacer(minLength: 0)
             }
         }
+        .padding(.horizontal, 8)
+        .frame(height: 36)
+        .frame(maxWidth: .infinity)
+        .background(NT.bar)
     }
 }
 

@@ -63,7 +63,6 @@ struct ContentView: View {
     // Arama sonuçları Notlarım penceresiyle aynı koddan gelir (NotesStore.searchAsync)
     @State private var hits: [Hit] = []
     @State private var searchFlag: CancelFlag?
-    @State private var contacts: [ContactHit] = []      // Rehber'den eşleşen kişiler
     @State private var engines = SearchEngine.load()
     @State private var addOpen = false
     @State private var newName = ""
@@ -73,6 +72,14 @@ struct ContentView: View {
     @FocusState private var focused: Bool
 
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    /// Arama kutusunun ipucu: bugünün tarihi, örn. "Cuma 15 Kasım"
+    private var todayLabel: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "tr_TR")
+        f.dateFormat = "EEEE d MMMM"
+        return f.string(from: Date())
+    }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -111,7 +118,7 @@ struct ContentView: View {
             if qs.running {
                 devicesList
             } else {
-                TextField("", text: $text, prompt: Text("Ara; Enter ile ekle").foregroundColor(dim))
+                TextField("", text: $text, prompt: Text(todayLabel).foregroundColor(dim))
                     .textFieldStyle(.plain).font(.system(size: 16)).foregroundStyle(.white)
                     .lineLimit(1).focused($focused).onSubmit(submit)
                     .padding(.horizontal, 14).frame(height: 38)
@@ -247,12 +254,8 @@ struct ContentView: View {
                 .buttonStyle(.plain).help("Arama motoru ekle")
             }.padding(.horizontal, 8).padding(.vertical, 6)
             // En iyi sonuç arama kutusuna en yakın (altta); diğerleri yukarı doğru sıralanır
-            ForEach(Array(hits.prefix(3).reversed())) { h in
+            ForEach(Array(hits.prefix(2).reversed())) { h in
                 HitRow(hit: h, onOpen: { open(h) }, onDelete: { delete(h) })
-            }
-            // Kişiler notların üstünde: en iyi eşleşme notlara yakın kalır
-            ForEach(Array(contacts.reversed())) { c in
-                ContactRow(contact: c) { NSWorkspace.shared.open(URL(string: "addressbook://\(c.id)")!) }
             }
         }
     }
@@ -307,20 +310,16 @@ struct ContentView: View {
     private func search() {
         searchFlag?.cancel()
         let q = trimmed
-        guard !q.isEmpty else { hits = []; contacts = []; return }
+        guard !q.isEmpty else { hits = []; return }
         let flag = CancelFlag()
         searchFlag = flag
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 150_000_000)      // yazarken her tuşta taramayı başlatma
             if flag.isCancelled { return }
-            // Kişiler (Rehber) notlardan bağımsız aranır; Link klasörü olmasa da çalışır
-            async let people = ContactSearch.search(q)
             if let root = NotesStore.root {
                 let r = await NotesStore.searchAsync(root: root, query: q, alive: { !flag.isCancelled })
                 if !flag.isCancelled { hits = r }
             } else if !flag.isCancelled { hits = [] }
-            let c = await people
-            if !flag.isCancelled { contacts = c }
         }
     }
 
@@ -400,49 +399,6 @@ struct HitRow: View {
                     Button { NotesModel.shared.copyEntry(e) } label: { Image(systemName: "doc.on.doc") }
                 }
                 Button { onDelete() } label: { Image(systemName: "trash") }
-            }
-        }
-        .buttonStyle(.plain).foregroundStyle(.white)
-        .padding(.horizontal, 8).padding(.vertical, 5)
-        .background(RoundedRectangle(cornerRadius: 10).fill(hover ? Color.white.opacity(0.08) : .clear))
-        .contentShape(Rectangle()).onHover { hover = $0 }
-        .onTapGesture { onOpen() }
-    }
-}
-
-/// Panelde kişi satırı: tıklayınca Rehber'de açılır; üzerine gelince telefonu / e-postayı kopyala.
-struct ContactRow: View {
-    @ObservedObject private var notes = NotesModel.shared
-    let contact: ContactHit
-    let onOpen: () -> Void
-    @State private var hover = false
-
-    private func copy(_ s: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(s, forType: .string)
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "person.crop.circle")
-                .font(.system(size: 15)).foregroundStyle(.white)
-                .frame(width: 34, height: 34).background(Circle().fill(Color.white.opacity(0.12)))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(contact.name).font(.system(size: notes.fontSize)).foregroundStyle(.white).lineLimit(1)
-                if !contact.detail.isEmpty {
-                    Text(contact.detail).font(.system(size: max(notes.fontSize - 1, 9))).foregroundStyle(dim).lineLimit(1)
-                }
-            }
-            Spacer(minLength: 4)
-            if hover {
-                if !contact.phone.isEmpty {
-                    Button { copy(contact.phone) } label: { Image(systemName: "phone") }
-                        .help(L("Telefonu kopyala", "Copy phone"))
-                }
-                if !contact.email.isEmpty {
-                    Button { copy(contact.email) } label: { Image(systemName: "envelope") }
-                        .help(L("E-postayı kopyala", "Copy email"))
-                }
             }
         }
         .buttonStyle(.plain).foregroundStyle(.white)

@@ -41,7 +41,8 @@ final class FloatingBar {
     static let shared = FloatingBar()
     private var panel: NSPanel?
     private var host: FitHostingView<ContentView>?
-    private let margin: CGFloat = 12
+    private let margin: CGFloat = 0          // köşeye tam yapışık (boşluk istersen 4-8 yap)
+    private let overDock = true             // true: Dock'un üstüne biner, ekranın gerçek sağ-alt köşesine yapışır; false: Dock'un üstünde durur
 
     var isShown: Bool { panel?.isVisible == true }
 
@@ -68,7 +69,7 @@ final class FloatingBar {
         p.isOpaque = false
         p.backgroundColor = .clear
         p.hasShadow = true
-        p.level = .floating
+        p.level = .statusBar                      // Dock'un (seviye 20) üstünde kalsın; .floating Dock'un arkasında kalırdı
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
@@ -81,11 +82,11 @@ final class FloatingBar {
         }
     }
 
-    /// Sağ alt köşe: visibleFrame Dock ve menü çubuğunu zaten dışarıda bırakır (Dock altta ya da sağdaysa çubuk onun üstünde/solunda durur).
+    /// Sağ alt köşe. overDock açıksa tam ekran çerçevesi (Dock dahil), kapalıysa visibleFrame (Dock'un dışı) kullanılır.
     private func place() {
         guard let p = panel, let scr = NSScreen.main else { return }
-        let vf = scr.visibleFrame
-        p.setFrameOrigin(NSPoint(x: vf.maxX - p.frame.width - margin, y: vf.minY + margin))
+        let area = overDock ? scr.frame : scr.visibleFrame
+        p.setFrameOrigin(NSPoint(x: area.maxX - p.frame.width - margin, y: area.minY + margin))
         host?.fitWindow()
     }
 }

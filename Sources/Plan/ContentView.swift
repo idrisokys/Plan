@@ -60,9 +60,6 @@ struct ContentView: View {
     @ObservedObject private var qs = QuickShare.shared
     @State private var text = ""
     @State private var status = ""
-    // Arama sonuçları Notlarım penceresiyle aynı koddan gelir (NotesStore.searchAsync)
-    @State private var hits: [Hit] = []
-    @State private var searchFlag: CancelFlag?
     @State private var engines = SearchEngine.load()
     @State private var addOpen = false
     @State private var newName = ""
@@ -93,12 +90,11 @@ struct ContentView: View {
         .frame(width: 330)
         .background(panelBG)
         .preferredColorScheme(.dark)
-        .onAppear { focused = true; search() }
+        .onAppear { focused = true }
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
             let e = SearchEngine.load()
             if e != engines { engines = e }          // panel ve sabit çubuk aynı arama motorlarını gösterir
         }
-        .onChange(of: text) { _ in search() }
         .onChange(of: qs.running) { on in if !on { focused = true } }     // paylaşım kapanınca arama kutusu geri gelir
         .onReceive(qs.$message) { if !$0.isEmpty { flash($0) } }
     }
@@ -228,7 +224,8 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Arama sonuçları — alttan üste: [arama kutusu] ← en iyi sonuç ← … ← (sorgu · eklenen motorlar · +) ← motor ekleme paneli
+    // MARK: Yazılanın altındaki satır: (sorgu · eklenen motorlar · temizle · Notlarımda ara · +) ← motor ekleme paneli.
+    // Not sonuçları burada gösterilmez; "Notlarımda ara" simgesi Notlarım penceresinde aratır.
     // Motorlar + düğmesinin SOLUNDA durur: + en sağda, yeni eklenen motor en solda (sola doğru büyür).
     private var searchResults: some View {
         VStack(spacing: 0) {
@@ -247,16 +244,18 @@ struct ContentView: View {
                         .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.2)))
                 }
                 .buttonStyle(.plain).help(L("Yazılanı temizle", "Clear text"))
+                // Notlarımda ara: sonuçlar bu çubukta değil, Notlarım penceresinin içinde çıkar
+                Button { searchNotes() } label: {
+                    Image(systemName: "magnifyingglass").font(.system(size: 16, weight: .medium)).foregroundStyle(.white)
+                        .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.2)))
+                }
+                .buttonStyle(.plain).help(L("Notlarımda ara", "Search My Notes"))
                 Button { addOpen.toggle() } label: {
                     Image(systemName: "plus").font(.system(size: 17, weight: .heavy)).foregroundStyle(.white)
                         .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.2)))
                 }
                 .buttonStyle(.plain).help("Arama motoru ekle")
             }.padding(.horizontal, 8).padding(.vertical, 6)
-            // En iyi sonuç arama kutusuna en yakın (altta); diğerleri yukarı doğru sıralanır
-            ForEach(Array(hits.prefix(2).reversed())) { h in
-                HitRow(hit: h, onOpen: { open(h) }, onDelete: { delete(h) })
-            }
         }
     }
 
@@ -306,37 +305,15 @@ struct ContentView: View {
         }
     }
 
-    /// Yazdıkça arar: tarama Notlarım'daki aramayla aynı koddur (NotesStore.searchAsync).
-    private func search() {
-        searchFlag?.cancel()
+    /// Notlarımda ara simgesi: Notlarım penceresini açar ve yazılanı orada arar (plan://search ile aynı yol).
+    private func searchNotes() {
         let q = trimmed
-        guard !q.isEmpty else { hits = []; return }
-        let flag = CancelFlag()
-        searchFlag = flag
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 150_000_000)      // yazarken her tuşta taramayı başlatma
-            if flag.isCancelled { return }
-            if let root = NotesStore.root {
-                let r = await NotesStore.searchAsync(root: root, query: q, alive: { !flag.isCancelled })
-                if !flag.isCancelled { hits = r }
-            } else if !flag.isCancelled { hits = [] }
-        }
+        guard !q.isEmpty else { return }
+        text = ""
+        NotesWindow.show()
+        NotesModel.shared.externalSearch(q)
     }
 
-    /// Sonuca dokunma: Notlarım'daki "aç" koduyla aynı (link açılır, not kopyalanır); klasör ve .txt Notlarım'da açılır.
-    private func open(_ h: Hit) {
-        let m = NotesModel.shared
-        if h.entry.isDir {
-            NotesWindow.show(); m.exitSearch(false); m.setStack(h.path + [h.entry])
-        } else if h.entry.isTxt {
-            NotesWindow.show(); m.open(h.entry)
-        } else {
-            m.open(h.entry)
-        }
-    }
-    private func delete(_ h: Hit) {
-        NotesModel.shared.deleteNow([h.entry]) { search() }
-    }
     private func run(_ e: SearchEngine) {
         guard let u = e.searchURL(trimmed) else { flash("Adres geçersiz"); return }
         NSWorkspace.shared.open(u); text = ""
@@ -365,46 +342,5 @@ struct ContentView: View {
     private func flash(_ s: String) {
         status = s
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { if status == s { status = "" } }
-    }
-}
-
-/// Panelde arama sonucu satırı; veri Notlarım aramasının `Hit` modelidir, paylaş/kopyala/sil de Notlarım'ın kodunu çağırır.
-struct HitRow: View {
-    @ObservedObject private var notes = NotesModel.shared
-    let hit: Hit
-    let onOpen: () -> Void
-    let onDelete: () -> Void
-    @State private var hover = false
-    private var e: Entry { hit.entry }
-
-    private var icon: String { e.isDir ? "folder" : (e.isTxt ? "doc.text" : (hit.isNote ? "note.text" : "link")) }
-    private var sub: String {
-        if !hit.detail.isEmpty { return hit.detail.replacingOccurrences(of: "\n", with: " ") }
-        return hit.path.map { $0.name }.joined(separator: " › ")
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 15)).foregroundStyle(.white)
-                .frame(width: 34, height: 34).background(Circle().fill(Color.white.opacity(0.12)))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(e.title).font(.system(size: notes.fontSize)).foregroundStyle(.white).lineLimit(1)
-                if !sub.isEmpty { Text(sub).font(.system(size: max(notes.fontSize - 1, 9))).foregroundStyle(dim).lineLimit(1) }
-            }
-            Spacer(minLength: 4)
-            if hover {
-                if !e.isDir {
-                    Button { NotesModel.shared.shareEntries([e]) } label: { Image(systemName: "square.and.arrow.up") }
-                    Button { NotesModel.shared.copyEntry(e) } label: { Image(systemName: "doc.on.doc") }
-                }
-                Button { onDelete() } label: { Image(systemName: "trash") }
-            }
-        }
-        .buttonStyle(.plain).foregroundStyle(.white)
-        .padding(.horizontal, 8).padding(.vertical, 5)
-        .background(RoundedRectangle(cornerRadius: 10).fill(hover ? Color.white.opacity(0.08) : .clear))
-        .contentShape(Rectangle()).onHover { hover = $0 }
-        .onTapGesture { onOpen() }
     }
 }

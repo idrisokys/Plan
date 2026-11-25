@@ -14,6 +14,9 @@ struct PlanApp: App {
         }
         .defaultSize(width: 350, height: 650)
         .windowResizability(.contentSize)
+        // plan://add (Paylaş menüsü) gibi dış olaylar pencereyi kendiliğinden açmasın; paylaşım arka planda biter.
+        // Pencere yalnızca kalem düğmesi / menü / plan://search ile (NotesWindow.show) açılır.
+        .handlesExternalEvents(matching: [])
         .commands {
             CommandGroup(replacing: .newItem) { }
             CommandMenu(L("Notlarım", "My Notes")) {
@@ -175,9 +178,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             guard let t = c.queryItems?.first(where: { $0.name == "t" })?.value else { continue }
             let s = c.queryItems?.first(where: { $0.name == "s" })?.value      // tarayıcının verdiği sayfa başlığı
+            // Pencere açmadan, öne gelmeden arka planda kaydeder; yalnızca kısa bir bildirim görünür.
             Task { @MainActor in
                 NotesModel.shared.shareAdd(t, subject: s)
-                    }
+                if !NotesWindow.requested { NotesWindow.window?.close() }
+            }
         }
     }
 }

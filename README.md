@@ -9,11 +9,11 @@ Tek uygulama, iki parça:
 ## Menü çubuğu paneli
 
 - Üst çubuk: [Paylaş] [arama kutusu] [Kalem] [✕]. Kalem = **Notlarım penceresini** açar; Kapat (✕) uygulamayı tamamen kapatır. Paylaşım açılınca cihaz listesinin altında, "ON" simgesinin hizasında **Eşitle ⇄** düğmesi çıkar.
-  Yazınca en çok 3 not + (sorgu · + · eklenen motorlar) satırı çıkar.
+  Yazınca altında tek satır çıkar: (sorgu · eklenen motorlar · **temizle** · **Notlarımda ara** · +). Not sonuçları artık bu çubukta gösterilmez:
+  **Notlarımda ara** (büyüteç) simgesine basınca Notlarım penceresi açılır ve sonuçlar pencerenin içinde listelenir.
 - Arama motoru ekle: Arama satırındaki + → ad ve adres (`%s` aranan kelimenin yerine geçer) yaz, Ekle. Yeni motor ilk harfiyle
   en sağda görünür (sağ tık → Sil).
 - Enter / "Ekle": link ise `~/Link/Url` klasörüne .url (Notlarım'da başka bir alt klasörün içindeyken orada kalır), kısa metin not, 116 karakterden uzunsa .txt olarak kaydeder.
-- Satırın üstüne gelince: Paylaş, Kopyala, Çöpe at. Linke tıkla = tarayıcıda açılır.
 - Herhangi bir uygulamada metin seç → Hizmetler → **"Notlarıma Kaydet"** (ilk seferde Sistem Ayarları > Klavye >
   Klavye Kısayolları > Hizmetler'den açman gerekebilir). Link ise sayfa başlığı otomatik alınır.
 - Hızlı Paylaş (Android'deki aynı protokol): soldaki anten düğmesi = ağdan dosya almayı aç/kapat (açıkken açık mavi "ON"). Paylaşım ekranındaki "Alındı" satırına tıklayınca dosyanın kaydedildiği klasör açılır. Paylaşım açıkken altta açık cihazlar listelenir; klasör simgesiyle dosya gönderirsin.
@@ -36,7 +36,7 @@ Pencere 400 × 600 açılır ve ekranın sağ kenarına tutturulur. Pencere vars
 - Eşitleme: Hızlı Paylaş açıkken cihaz listesinin üstündeki ⇄ simgesi; açılan pencerede cihazlar işaretlenir ve "Bu cihaza göre / Karşıdaki cihaza göre / İki cihazda aynı olsun" seçilir. `~/Link` içeriği (Android'deki `<ana dizin>/Link` ile) eşitlenir; silinenler kalıcı silinir (Çöp Kutusu yok); yalnızca "Bu cihaza göre" / "Karşıdaki cihaza göre" modları siler.
 - Paylaş menüsü: Safari/Paylaş menüsünde **Notlarım** (uygulamanın içindeki `PlanShare.appex` eklentisi).
 - Dosya paylaşımı: **Finder'da** dosya(lar)ı seç → Paylaş → **Notlarım**: açık cihazlar paneli açılır, cihaza dokununca dosyalar gönderilir (klasörler zip'lenir).
-- Adres şeması: `plan://add?t=…` ve `plan://search?q=…`.
+- Adres şeması: `plan://add?t=…` (Paylaş menüsü: **pencere açılmaz, uygulama öne gelmez**; kayıt arka planda biter, yalnızca kısa bildirim görünür) ve `plan://search?q=…` (Notlarım açılır, sonuçlar içinde gösterilir).
 - Chrome eklentisi: `chrome-extension/` klasörü uygulamanın içine konur. Notlarım penceresi açıkken menü çubuğunda
   **Notlarım → Chrome Eklentisi Klasörünü Aç**. Kurulum: [chrome-extension/README.md](chrome-extension/README.md).
 
@@ -52,7 +52,7 @@ chrome-extension/        # Chrome eklentisi (uygulamanın içine konur)
 Resources/               # Simgeler, tr/en ServicesMenu.strings
 Sources/Plan/
 ├── App.swift            # Giriş: Notlarım penceresi (Window), menü çubuğu simgesi (StatusItemController), AppDelegate, Hizmetler
-├── ContentView.swift    # Arama çubuğu (ekleme/arama Notlarım ile ortak: NotesStore.submit / searchAsync)
+├── ContentView.swift    # Arama çubuğu (ekleme: NotesStore.submit; arama Notlarım penceresinde: NotesModel.externalSearch)
 ├── FloatingBar.swift    # Arama çubuğunu sağ alt köşeye sabitleyen yüzen panel; menü çubuğu simgesi göster/gizle
 ├── QuickShare.swift     # Hızlı Paylaş: Bonjour + durum; ağ/dosya işi Rust'ta (RustShare köprüsü)
 └── Notlarim/            # Notlarım kodu (Models, Store, Services, ViewModel, Views, Support)

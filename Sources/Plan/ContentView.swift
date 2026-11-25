@@ -230,8 +230,13 @@ struct ContentView: View {
     private var searchResults: some View {
         VStack(spacing: 0) {
             if addOpen { addEnginePanel }
-            HStack(spacing: 10) {
+            // Alt satırla aynı genişlik ve aynı simge boyutları: soldaki 30 (Paylaş ile aynı hizada), sağdakiler 36 (Kalem gibi).
+            HStack(spacing: 8) {
+                // Notlarımda ara: en solda; sonuçlar bu çubukta değil, Notlarım penceresinin içinde çıkar
+                Button { searchNotes() } label: { circle("magnifyingglass", size: onSize) }
+                    .buttonStyle(.plain).help(L("Notlarımda ara", "Search My Notes"))
                 Text(trimmed).font(.system(size: notes.fontSize)).foregroundStyle(.white).lineLimit(1)
+                    .padding(.leading, 6)
                 Spacer(minLength: 4)
                 ForEach(Array(engines.reversed())) { e in
                     Button { run(e) } label: { letterIcon(e.letter, color: .white, heavy: false) }
@@ -239,29 +244,18 @@ struct ContentView: View {
                         .contextMenu { Button("Sil") { removeEngine(e) } }
                 }
                 // Yazılanı temizle: + düğmesinin solunda
-                Button { text = ""; focused = true } label: {
-                    Image(systemName: "delete.left").font(.system(size: 16, weight: .medium)).foregroundStyle(.white)
-                        .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.2)))
-                }
-                .buttonStyle(.plain).help(L("Yazılanı temizle", "Clear text"))
-                // Notlarımda ara: sonuçlar bu çubukta değil, Notlarım penceresinin içinde çıkar
-                Button { searchNotes() } label: {
-                    Image(systemName: "magnifyingglass").font(.system(size: 16, weight: .medium)).foregroundStyle(.white)
-                        .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.2)))
-                }
-                .buttonStyle(.plain).help(L("Notlarımda ara", "Search My Notes"))
-                Button { addOpen.toggle() } label: {
-                    Image(systemName: "plus").font(.system(size: 17, weight: .heavy)).foregroundStyle(.white)
-                        .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.2)))
-                }
-                .buttonStyle(.plain).help("Arama motoru ekle")
-            }.padding(.horizontal, 8).padding(.vertical, 6)
+                Button { text = ""; focused = true } label: { circle("delete.left") }
+                    .buttonStyle(.plain).help(L("Yazılanı temizle", "Clear text"))
+                Button { addOpen.toggle() } label: { circle("plus") }
+                    .buttonStyle(.plain).help("Arama motoru ekle")
+            }
+            .frame(minHeight: 38)
         }
     }
 
     private func letterIcon(_ l: String, color: Color, heavy: Bool) -> some View {
         Text(l).font(.system(size: 19, weight: heavy ? .heavy : .semibold)).foregroundStyle(color)
-            .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.2)))
+            .frame(width: 36, height: 36).background(Circle().fill(idleBG))
     }
 
     // MARK: Arama motoru ekleme bölümü (+ ile açılır/kapanır)

@@ -8,6 +8,7 @@ struct BottomIcons: View {
     var body: some View {
         HStack(spacing: 0) {
             if m.searchQuery == nil {
+                SyncButton()
                 IconBtn(MI.refresh, help: L("Yenile (⌘R)", "Refresh (⌘R)")) { m.refresh() }
             }
         }

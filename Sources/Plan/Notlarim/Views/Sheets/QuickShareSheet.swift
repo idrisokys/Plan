@@ -8,9 +8,11 @@ struct QuickShareSheet: View {
     let onClose: () -> Void
 
     /// Hedef klasör: İndir → karşı cihazın /Download klasörü, Link → /Link klasörü
-    @State private var toLink = false
+    @State private var pickedDownload = false      // varsayılan: Link seçili
     @State private var searching = true
     @State private var searchToken = 0
+
+    private var toLink: Bool { linkAllowed && !pickedDownload }
 
     /// Link klasörüne yalnızca not dosyaları (.url / .txt) gider.
     private var linkAllowed: Bool {
@@ -21,13 +23,13 @@ struct QuickShareSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(L("Hızlı Paylaş", "Quick Share") + (files.count > 1 ? " (\(files.count))" : ""))
-                    .font(.system(size: 20)).foregroundStyle(NT.onSurface)
+                    .font(.system(size: 16)).foregroundStyle(NT.onSurface)
                 Spacer()
                 IconBtn(MI.refresh, help: L("Cihazları yenile", "Refresh devices")) { refresh() }
             }
             HStack(spacing: 40) {
-                radio(L("İndir", "Download"), selected: !toLink) { toLink = false }
-                radio("Link", selected: toLink) { if linkAllowed { toLink = true } }
+                radio(L("İndir", "Download"), selected: !toLink) { pickedDownload = true }
+                radio("Link", selected: toLink) { if linkAllowed { pickedDownload = false } }
                     .opacity(linkAllowed ? 1 : 0.38)
                 Spacer()
             }
@@ -43,7 +45,7 @@ struct QuickShareSheet: View {
                         .foregroundStyle(NT.onSurfaceVariant)
                 }
                 Text(L("Karşı cihazda Hızlı Paylaş açık olmalı.", "Quick Share must be on on the other device."))
-                    .font(.footnote).foregroundStyle(NT.onSurfaceVariant)
+                    .font(.system(size: 16)).foregroundStyle(NT.onSurfaceVariant)
             } else {
                 VStack(spacing: 0) {
                     ForEach(qs.devices) { d in
@@ -61,7 +63,7 @@ struct QuickShareSheet: View {
             }
             if let i = qs.info {
                 Text(i.text)
-                    .font(.footnote)
+                    .font(.system(size: 16))
                     .foregroundStyle(i.kind == .failed ? NT.error : NT.onSurfaceVariant)
             }
             HStack {
@@ -92,7 +94,7 @@ struct QuickShareSheet: View {
                     Circle().stroke(NT.onSurface, lineWidth: 2).frame(width: 22, height: 22)
                     if selected { Circle().fill(NT.onSurface).frame(width: 22, height: 22) }
                 }
-                Text(title).font(.system(size: 18)).foregroundStyle(NT.onSurface)
+                Text(title).font(.system(size: 16)).foregroundStyle(NT.onSurface)
             }
             .contentShape(Rectangle())
         }
@@ -114,7 +116,7 @@ struct QuickShareSheet: View {
 
     private func send(_ d: QSDevice) {
         if qs.sendingTo.contains(d.id) { return }
-        qs.send(files, to: d, toLink: toLink && linkAllowed)
+        qs.send(files, to: d, toLink: toLink)
     }
 
     private func close() { onClose() }

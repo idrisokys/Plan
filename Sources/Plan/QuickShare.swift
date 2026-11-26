@@ -171,6 +171,10 @@ final class QuickShare: ObservableObject {
             DispatchQueue.main.async { self.sendingTo.remove(d.id) }
             if okCount == files.count {
                 post(.sent, files.count == 1 ? "Gönderildi: \(first) → \(d.name)" : "\(okCount) dosya gönderildi → \(d.name)")
+                // Paylaşım bitince Hızlı Paylaş kendiliğinden kapanır (başka gönderim sürmüyorsa)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [self] in
+                    if sendingTo.isEmpty { stop() }
+                }
             } else {
                 post(.failed, "Gönderilemedi (\(files.count - okCount) dosya) → \(d.name)")
             }

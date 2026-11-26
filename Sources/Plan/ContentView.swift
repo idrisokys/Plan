@@ -5,8 +5,6 @@ import AppKit
 // Üst çubuk: [Paylaş] [arama kutusu] [Kalem → Notlarım] [Gizle]
 private let panelBG = Color(white: 0.13)
 private let idleBG = Color.black.opacity(0.45)
-private let onBlue = Color(red: 0.55, green: 0.80, blue: 1.0)          // açık mavi "ON"
-private let menuBG = Color(red: 0.165, green: 0.165, blue: 0.165)
 private let dim = Color.white.opacity(0.67)
 
 /// Paylaş / ON simgesinin ve altındaki ⇄ simgesinin çapı (aynı hizada dururlar).
@@ -18,52 +16,10 @@ private func circle(_ system: String, size: CGFloat = 36) -> some View {
         .background(Circle().fill(idleBG))
 }
 
-private func circleView<C: View>(size: CGFloat = 36, @ViewBuilder _ content: () -> C) -> some View {
-    content()
-        .frame(width: size, height: size)
-        .background(Circle().fill(idleBG))
-}
-
-// MARK: Arama motorları (eklenenler UserDefaults'ta tutulur)
-struct SearchEngine: Codable, Identifiable, Hashable {
-    var id = UUID()
-    var name: String
-    var url: String          // %s veya {q} sorgunun yerine geçer; yoksa sorgu sona eklenir
-
-    var letter: String {
-        let f = String(name.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased()
-        return f.isEmpty ? "?" : f
-    }
-
-    func searchURL(_ query: String) -> URL? {
-        guard let q = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
-        var u = url
-        if u.contains("%s") { u = u.replacingOccurrences(of: "%s", with: q) }
-        else if u.contains("{q}") { u = u.replacingOccurrences(of: "{q}", with: q) }
-        else { u += q }
-        return URL(string: u)
-    }
-
-    static func load() -> [SearchEngine] {
-        guard let d = UserDefaults.standard.data(forKey: "engines"),
-              let e = try? JSONDecoder().decode([SearchEngine].self, from: d) else { return [] }
-        return e
-    }
-    static func save(_ e: [SearchEngine]) {
-        if let d = try? JSONEncoder().encode(e) { UserDefaults.standard.set(d, forKey: "engines") }
-    }
-}
-
 struct ContentView: View {
-    // Sonuç yazıları Notlarım'ın yazı boyutunu izler (⌘+ / ⌘−)
-    @ObservedObject private var notes = NotesModel.shared
     @ObservedObject private var qs = QuickShare.shared
     @State private var text = ""
     @State private var status = ""
-    @State private var engines = SearchEngine.load()
-    @State private var addOpen = false
-    @State private var newName = ""
-    @State private var newURL = ""
     @FocusState private var focused: Bool
 
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -78,9 +34,6 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            // Çubuk ekranın altında sabit: arama kutusu en altta, sonuçlar ondan yukarı doğru dizilir
-            // (panel sağ alt köşe sabit kalıp yukarı büyür).
-            if !qs.running && !trimmed.isEmpty { searchResults }
             if !status.isEmpty { Text(status).font(.footnote).foregroundStyle(dim) }
             bar
         }
@@ -89,10 +42,6 @@ struct ContentView: View {
         .background(panelBG)
         .preferredColorScheme(.dark)
         .onAppear { focused = true }
-        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
-            let e = SearchEngine.load()
-            if e != engines { engines = e }          // panel ve sabit çubuk aynı arama motorlarını gösterir
-        }
         .onChange(of: qs.running) { on in if !on { focused = true } }     // paylaşım kapanınca arama kutusu geri gelir
         .onReceive(qs.$message) { if !$0.isEmpty { flash($0) } }
     }
@@ -120,8 +69,8 @@ struct ContentView: View {
             }
 
             // Kalem: Notlarım (notlar ve linkler) penceresini açar; ayrı uygulama değil, bu uygulamanın parçası
-            Button { NotesWindow.toggle() } label: { circle("square.and.pencil") }
-                .buttonStyle(.plain).help("Notlarım (aç/kapat)")
+            Button { notesButton() } label: { circle("square.and.pencil") }
+                .buttonStyle(.plain).help(L("Notlarım (aç/kapat) · yazı varsa Notlarım'da ara", "My Notes (open/close) · searches notes if text is typed"))
                 .frame(height: rowH)
             // OCR: ekrandan alan seç, içindeki yazıyı okuyup panoya kopyala
             Button { ScreenOCR.run() } label: { circle("text.viewfinder") }
@@ -187,66 +136,6 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Yazılanın altındaki satır: (sorgu · eklenen motorlar · temizle · Notlarımda ara · +) ← motor ekleme paneli.
-    // Not sonuçları burada gösterilmez; "Notlarımda ara" simgesi Notlarım penceresinde aratır.
-    // Motorlar + düğmesinin SOLUNDA durur: + en sağda, yeni eklenen motor en solda (sola doğru büyür).
-    private var searchResults: some View {
-        VStack(spacing: 0) {
-            if addOpen { addEnginePanel }
-            // Alt satırla aynı genişlik ve aynı simge boyutları: soldaki 30 (Paylaş ile aynı hizada), sağdakiler 36 (Kalem gibi).
-            HStack(spacing: 8) {
-                // Notlarımda ara: en solda; sonuçlar bu çubukta değil, Notlarım penceresinin içinde çıkar
-                Button { searchNotes() } label: { circle("magnifyingglass", size: onSize) }
-                    .buttonStyle(.plain).help(L("Notlarımda ara", "Search My Notes"))
-                Text(trimmed).font(.system(size: notes.fontSize)).foregroundStyle(.white).lineLimit(1)
-                    .padding(.leading, 6)
-                Spacer(minLength: 4)
-                ForEach(Array(engines.reversed())) { e in
-                    Button { run(e) } label: { letterIcon(e.letter, color: .white, heavy: false) }
-                        .buttonStyle(.plain).help(e.name)
-                        .contextMenu { Button("Sil") { removeEngine(e) } }
-                }
-                // Yazılanı temizle: + düğmesinin solunda
-                Button { text = ""; focused = true } label: { circle("delete.left") }
-                    .buttonStyle(.plain).help(L("Yazılanı temizle", "Clear text"))
-                Button { addOpen.toggle() } label: { circle("plus") }
-                    .buttonStyle(.plain).help("Arama motoru ekle")
-            }
-            .frame(minHeight: 38)
-        }
-    }
-
-    private func letterIcon(_ l: String, color: Color, heavy: Bool) -> some View {
-        Text(l).font(.system(size: 19, weight: heavy ? .heavy : .semibold)).foregroundStyle(color)
-            .frame(width: 36, height: 36).background(Circle().fill(idleBG))
-    }
-
-    // MARK: Arama motoru ekleme bölümü (+ ile açılır/kapanır)
-    private var addEnginePanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            field("Ad (örn. Google)", $newName)
-            field("Adres (örn. https://www.google.com/search?q=%s)", $newURL)
-            HStack {
-                Text("%s = aranan kelime").font(.footnote).foregroundStyle(dim)
-                Spacer()
-                Button("Ekle") { addEngine() }
-                    .buttonStyle(.plain).foregroundStyle(.white)
-                    .padding(.horizontal, 16).padding(.vertical, 6)
-                    .background(Capsule().fill(Color.white.opacity(0.2)))
-            }
-        }
-        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14).fill(menuBG))
-        .padding(.bottom, 8)
-    }
-
-    private func field(_ prompt: String, _ b: Binding<String>) -> some View {
-        TextField("", text: b, prompt: Text(prompt).foregroundColor(dim))
-            .textFieldStyle(.plain).font(.system(size: 15)).foregroundStyle(.white)
-            .padding(.horizontal, 12).frame(height: 32)
-            .background(Capsule().fill(idleBG))
-    }
-
     // MARK: Eylemler
     /// Enter: ekleme kuralı Notlarım penceresindekiyle aynıdır (NotesStore.submit).
     private func submit() {
@@ -262,7 +151,12 @@ struct ContentView: View {
         }
     }
 
-    /// Notlarımda ara simgesi: Notlarım penceresini açar ve yazılanı orada arar (plan://search ile aynı yol).
+    /// Kalem simgesi: kutuda yazı varsa Notlarım'da arar, yoksa Notlarım penceresini açar/kapatır.
+    private func notesButton() {
+        if trimmed.isEmpty { NotesWindow.toggle() } else { searchNotes() }
+    }
+
+    /// Yazılanı Notlarım'da arar: Notlarım penceresini açar ve yazılanı orada arar (plan://search ile aynı yol).
     private func searchNotes() {
         let q = trimmed
         guard !q.isEmpty else { return }
@@ -271,25 +165,6 @@ struct ContentView: View {
         NotesModel.shared.externalSearch(q)
     }
 
-    private func run(_ e: SearchEngine) {
-        guard let u = e.searchURL(trimmed) else { flash("Adres geçersiz"); return }
-        NSWorkspace.shared.open(u); text = ""
-    }
-    private func addEngine() {
-        let n = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        var u = newURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !u.isEmpty else { flash("Adres gerekli"); return }
-        if !u.lowercased().hasPrefix("http") { u = "https://" + u }
-        guard let host = URL(string: u.replacingOccurrences(of: "%s", with: "x").replacingOccurrences(of: "{q}", with: "x"))?.host
-        else { flash("Adres geçersiz"); return }
-        let e = SearchEngine(name: n.isEmpty ? host.replacingOccurrences(of: "www.", with: "") : n, url: u)
-        engines.append(e); SearchEngine.save(engines)
-        newName = ""; newURL = ""; addOpen = false
-        flash("\(e.name) eklendi")
-    }
-    private func removeEngine(_ e: SearchEngine) {
-        engines.removeAll { $0.id == e.id }; SearchEngine.save(engines)
-    }
     private func pickAndSend(to d: QSDevice) {
         NSApp.activate(ignoringOtherApps: true)
         let p = NSOpenPanel(); p.canChooseFiles = true; p.canChooseDirectories = false; p.allowsMultipleSelection = true

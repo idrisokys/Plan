@@ -28,19 +28,11 @@ enum RustCore {
         let b: [UInt8]
         var i = 0
         init(_ b: [UInt8]) { self.b = b }
-        var atEnd: Bool { i >= b.count }
         mutating func u8() -> UInt8? { guard i < b.count else { return nil }; defer { i += 1 }; return b[i] }
         mutating func u32() -> Int? {
             guard i + 4 <= b.count else { return nil }
             defer { i += 4 }
             return Int(b[i]) | Int(b[i + 1]) << 8 | Int(b[i + 2]) << 16 | Int(b[i + 3]) << 24
-        }
-        mutating func u64() -> UInt64? {
-            guard i + 8 <= b.count else { return nil }
-            defer { i += 8 }
-            var v: UInt64 = 0
-            for k in 0..<8 { v |= UInt64(b[i + k]) << UInt64(8 * k) }
-            return v
         }
         mutating func str() -> String? {
             guard let n = u32(), i + n <= b.count else { return nil }

@@ -8,6 +8,4 @@ enum AppInfo {
     /// Adres şeması: plan://add?t=… ve plan://search?q=…
     static let urlScheme = "plan"
     static let supportFolderName = "Plan"
-    static let contactEmail = "sislivadi@gmail.com"
-    static let githubURL = URL(string: "https://github.com/idrisokys/")!
 }

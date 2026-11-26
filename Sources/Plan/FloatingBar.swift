@@ -7,6 +7,43 @@ import AppKit
 private final class BarPanel: NSPanel {
     override var canBecomeKey: Bool { true }     // arama kutusuna yazılabilsin
     override var canBecomeMain: Bool { false }
+
+    /// Basılı tutup yatay çekme: true = sağa (gizle), false = sola (aç).
+    var onSwipe: ((Bool) -> Void)?
+    private var downPoint: NSPoint?
+    private var swiping = false
+
+    override func sendEvent(_ e: NSEvent) {
+        switch e.type {
+        case .leftMouseDown:
+            downPoint = NSEvent.mouseLocation
+            swiping = false
+            super.sendEvent(e)
+        case .leftMouseDragged:
+            if swiping { return }
+            guard let d = downPoint else { super.sendEvent(e); return }
+            let p = NSEvent.mouseLocation
+            let dx = p.x - d.x, dy = p.y - d.y
+            if abs(dx) > 24, abs(dx) > abs(dy) * 1.5 {
+                swiping = true
+                // Düğmenin üstünde başladıysa tıklama sayılmasın: pencere dışında bir "fare bırakıldı" olayı gönder.
+                if let up = NSEvent.mouseEvent(with: .leftMouseUp, location: NSPoint(x: -10000, y: -10000),
+                                               modifierFlags: [], timestamp: e.timestamp, windowNumber: windowNumber,
+                                               context: nil, eventNumber: e.eventNumber, clickCount: 1, pressure: 0) {
+                    super.sendEvent(up)
+                }
+                onSwipe?(dx > 0)
+            } else {
+                super.sendEvent(e)
+            }
+        case .leftMouseUp:
+            downPoint = nil
+            if swiping { swiping = false; return }
+            super.sendEvent(e)
+        default:
+            super.sendEvent(e)
+        }
+    }
 }
 
 /// İçerik büyüyünce (sonuçlar, arama motoru ekleme paneli) pencere sağ alt köşe sabit kalacak şekilde yukarı/sola büyür.
@@ -44,6 +81,10 @@ final class FloatingBar {
     private let margin: CGFloat = 0          // köşeye tam yapışık (boşluk istersen 4-8 yap)
     private let overDock = true             // true: Dock'un üstüne biner, ekranın gerçek sağ-alt köşesine yapışır; false: Dock'un üstünde durur
 
+    /// Sağa gizlenmiş mi? Gizliyken panelin yalnızca sol ucu (OCR simgesi) ekranda kalır.
+    private var collapsed = false
+    private let peek: CGFloat = 60            // gizliyken ekranda kalan genişlik: iç boşluk + OCR simgesi + pay
+
     var isShown: Bool { panel?.isVisible == true }
 
     /// Menü çubuğu simgesi: görünürse gizler, gizliyse gösterir.
@@ -51,6 +92,7 @@ final class FloatingBar {
 
     func show(focus: Bool = true) {
         if panel == nil { build() }
+        collapsed = false                     // menü simgesiyle açılınca çubuk tam görünsün
         place()
         panel?.orderFrontRegardless()
         if focus { panel?.makeKey() }
@@ -73,6 +115,9 @@ final class FloatingBar {
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
+        p.onSwipe = { [weak self] toRight in
+            Task { @MainActor in self?.setCollapsed(toRight) }
+        }
         panel = p
         host = h
         // Ekran / Dock düzeni değişince köşeye geri yerleştir
@@ -83,10 +128,27 @@ final class FloatingBar {
     }
 
     /// Sağ alt köşe. overDock açıksa tam ekran çerçevesi (Dock dahil), kapalıysa visibleFrame (Dock'un dışı) kullanılır.
-    private func place() {
-        guard let p = panel, let scr = NSScreen.main else { return }
+    /// Gizliyken panel sağa kayar; yalnızca `peek` genişliğindeki sol ucu ekranda kalır.
+    private func targetOrigin(for p: NSPanel) -> NSPoint? {
+        guard let scr = NSScreen.main else { return nil }
         let area = overDock ? scr.frame : scr.visibleFrame
-        p.setFrameOrigin(NSPoint(x: area.maxX - p.frame.width - margin, y: area.minY + margin))
+        let hidden = collapsed ? max(0, p.frame.width - peek) : 0
+        return NSPoint(x: area.maxX - p.frame.width - margin + hidden, y: area.minY + margin)
+    }
+
+    private func place() {
+        guard let p = panel, let o = targetOrigin(for: p) else { return }
+        p.setFrameOrigin(o)
         host?.fitWindow()
+    }
+
+    /// Sağa çekince gizle, sola çekince aç (animasyonlu).
+    private func setCollapsed(_ c: Bool) {
+        guard let p = panel, c != collapsed else { return }
+        collapsed = c
+        guard let o = targetOrigin(for: p) else { return }
+        var f = p.frame
+        f.origin = o
+        p.setFrame(f, display: true, animate: true)
     }
 }

@@ -2,7 +2,8 @@ import SwiftUI
 import AppKit
 
 // Koyu zemin, yarı saydam siyah yuvarlak düğmeler.
-// Üst çubuk: [Paylaş] [arama kutusu] [Kalem → Notlarım] [Gizle]
+// Üst çubuk: [OCR] [arama kutusu] [Kalem → Notlarım] [Paylaş]
+// Çubuğu basılı tutup sağa çekersen sağa gizlenir (yalnızca OCR simgesi görünür); o bölümü sola çekersen tamamı açılır.
 private let panelBG = Color(white: 0.13)
 private let idleBG = Color.black.opacity(0.45)
 private let dim = Color.white.opacity(0.67)
@@ -54,11 +55,9 @@ struct ContentView: View {
         // Paylaşım açıkken arama kutusu kaybolur; yerine cihaza gönderme seçenekleri gelir (düğmeler en alt satırda hizalı; liste yukarı doğru uzar).
         let rowH: CGFloat? = qs.running ? barH : nil
         return HStack(alignment: qs.running ? .bottom : .center, spacing: 8) {
-            // Hızlı Paylaş: dokun = aç/kapat. Açıkken ikon açık mavi "ON" olur. (Basılı tutarak klasör açma kaldırıldı.)
-            shareButton
-                .contentShape(Circle())
-                .onTapGesture { qs.toggle() }
-                .help("Hızlı Paylaş: dokun aç/kapat")
+            // OCR: ekrandan alan seç, içindeki yazıyı okuyup panoya kopyala
+            Button { ScreenOCR.run() } label: { circle("text.viewfinder") }
+                .buttonStyle(.plain).help(L("Ekrandan yazı kopyala (OCR)", "Copy text from screen (OCR)"))
                 .frame(height: rowH)
 
             if qs.running {
@@ -75,9 +74,11 @@ struct ContentView: View {
             Button { notesButton() } label: { circle("square.and.pencil") }
                 .buttonStyle(.plain).help(L("Notlarım (aç/kapat) · yazı varsa Notlarım'da ara", "My Notes (open/close) · searches notes if text is typed"))
                 .frame(height: rowH)
-            // OCR: ekrandan alan seç, içindeki yazıyı okuyup panoya kopyala
-            Button { ScreenOCR.run() } label: { circle("text.viewfinder") }
-                .buttonStyle(.plain).help(L("Ekrandan yazı kopyala (OCR)", "Copy text from screen (OCR)"))
+            // Hızlı Paylaş: dokun = aç/kapat. Açıkken ikon açık mavi "ON" olur. (Basılı tutarak klasör açma kaldırıldı.)
+            shareButton
+                .contentShape(Circle())
+                .onTapGesture { qs.toggle() }
+                .help("Hızlı Paylaş: dokun aç/kapat")
                 .frame(height: rowH)
         }
     }

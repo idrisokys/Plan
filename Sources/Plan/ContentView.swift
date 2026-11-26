@@ -10,6 +10,9 @@ private let dim = Color.white.opacity(0.67)
 /// Paylaş / ON simgesinin ve altındaki ⇄ simgesinin çapı (aynı hizada dururlar).
 private let onSize: CGFloat = 30
 
+/// Arama çubuğunun (ve paylaşım açıkken cihaz satırının) yüksekliği: sağdaki düğme simgeleriyle (circle varsayılanı) aynı.
+private let barH: CGFloat = 36
+
 private func circle(_ system: String, size: CGFloat = 36) -> some View {
     Image(systemName: system).font(.system(size: 15, weight: .medium)).foregroundStyle(.white)
         .frame(width: size, height: size)
@@ -49,7 +52,7 @@ struct ContentView: View {
     // MARK: Üst çubuk
     private var bar: some View {
         // Paylaşım açıkken arama kutusu kaybolur; yerine cihaza gönderme seçenekleri gelir (düğmeler en alt satırda hizalı; liste yukarı doğru uzar).
-        let rowH: CGFloat? = qs.running ? 38 : nil
+        let rowH: CGFloat? = qs.running ? barH : nil
         return HStack(alignment: qs.running ? .bottom : .center, spacing: 8) {
             // Hızlı Paylaş: dokun = aç/kapat. Açıkken ikon açık mavi "ON" olur. (Basılı tutarak klasör açma kaldırıldı.)
             shareButton
@@ -64,7 +67,7 @@ struct ContentView: View {
                 TextField("", text: $text, prompt: Text(todayLabel).foregroundColor(dim))
                     .textFieldStyle(.plain).font(.system(size: 16)).foregroundStyle(.white)
                     .lineLimit(1).focused($focused).onSubmit(submit)
-                    .padding(.horizontal, 14).frame(height: 38)
+                    .padding(.horizontal, 14).frame(height: barH)
                     .background(Capsule().fill(idleBG))
             }
 
@@ -98,7 +101,7 @@ struct ContentView: View {
                 Text("Açık cihaz aranıyor…").font(.system(size: 15)).foregroundStyle(.white)
                     .lineLimit(1)
                     .padding(.horizontal, 14)
-                    .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
+                    .frame(maxWidth: .infinity, minHeight: barH, alignment: .leading)
             } else {
                 // Cihaz sayısı arttıkça liste yukarı uzar: ilk cihaz en altta (düğmelerle aynı satırda)
                 ForEach(Array(qs.devices.reversed())) { d in
@@ -113,11 +116,11 @@ struct ContentView: View {
                         }
                     }
                     .padding(.leading, 14).padding(.trailing, 4)
-                    .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
+                    .frame(maxWidth: .infinity, minHeight: barH, alignment: .leading)
                 }
             }
         }
-        .background(RoundedRectangle(cornerRadius: 19).fill(idleBG))
+        .background(RoundedRectangle(cornerRadius: barH / 2).fill(idleBG))
     }
 
     /// Gönderme / alma bilgisi: bildirim yok, yalnızca bilgi varken tek satır (açıklama ve simge yok).
@@ -127,7 +130,7 @@ struct ContentView: View {
                 Text(i.text)
                     .font(.system(size: 15)).foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
                     .padding(.horizontal, 14)
-                    .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
+                    .frame(maxWidth: .infinity, minHeight: barH, alignment: .leading)
                     .contentShape(Rectangle())
                     .onTapGesture { if let f = i.folder { NSWorkspace.shared.open(f) } }     // "Alındı" satırı: kayıt klasörünü aç
                     .help(i.folder != nil ? "Kayıt klasörünü aç" : "")

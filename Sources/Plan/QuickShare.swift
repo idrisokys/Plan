@@ -96,6 +96,14 @@ final class QuickShare: ObservableObject {
 
     func toggle() { running ? stop() : start() }
 
+    /// Paylaşım ekranı açılınca: kapalıysa kendiliğinden açar (elle "Aç"a basmaya gerek kalmaz).
+    func ensureRunning() { if !running { start() } }
+
+    /// Açık cihaz aramasını yeniden başlatır (paylaşım ekranındaki ⟳ simgesi).
+    func refreshDevices() {
+        if server == nil { start() } else { startBrowsing() }
+    }
+
     // MARK: Açık cihazları bul (aynı ağda _qshare._tcp yayınlayanlar)
     private func startBrowsing() {
         browser?.cancel()
@@ -147,7 +155,8 @@ final class QuickShare: ObservableObject {
     }
 
     // MARK: Dosya gönder (Rust: client::send_files)
-    func send(_ files: [URL], to d: QSDevice) {
+    /// `toLink` true: karşı cihazın Link klasörüne, false: indirme (Download) klasörüne.
+    func send(_ files: [URL], to d: QSDevice, toLink: Bool = false) {
         guard !files.isEmpty else { return }
         let first = files[0].lastPathComponent
         DispatchQueue.main.async {
@@ -156,7 +165,9 @@ final class QuickShare: ObservableObject {
         }
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             var okCount = 0
-            if let addr = Self.resolveAddress(d.endpoint) { okCount = RustShare.send(files, toAddress: addr) }
+            if let addr = Self.resolveAddress(d.endpoint) {
+                okCount = RustShare.send(files, toAddress: addr, toLink: toLink, linkRoot: NotesStore.root)
+            }
             DispatchQueue.main.async { self.sendingTo.remove(d.id) }
             if okCount == files.count {
                 post(.sent, files.count == 1 ? "Gönderildi: \(first) → \(d.name)" : "\(okCount) dosya gönderildi → \(d.name)")

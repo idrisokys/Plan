@@ -106,19 +106,36 @@ impl Read for Conn {
 /// Tek dosya gönderir (`POST /u`, `X-Name`, `Content-Length`); alıcı `200` dönerse `true`.
 /// `progress(gönderilen, toplam)` her parçadan sonra çağrılır.
 pub fn send_file(addr: &str, path: &Path, progress: &mut dyn FnMut(u64, u64)) -> bool {
-    send_file_inner(addr, path, progress).unwrap_or(false)
+    send_file_inner(addr, path, None, progress).unwrap_or(false)
 }
 
-fn send_file_inner(addr: &str, path: &Path, progress: &mut dyn FnMut(u64, u64)) -> Result<bool> {
+/// Dosyayı karşı cihazın Link klasörüne gönderir (`X-Sync: 1` + `X-Mtime`); `rel` Link içindeki göreli yoldur.
+pub fn send_file_link(addr: &str, path: &Path, rel: &str, progress: &mut dyn FnMut(u64, u64)) -> bool {
+    send_file_inner(addr, path, Some(rel), progress).unwrap_or(false)
+}
+
+/// `link_rel` doluysa Link'e (eşitleme uç noktası), boşsa karşı cihazın indirme klasörüne yazılır.
+fn send_file_inner(addr: &str, path: &Path, link_rel: Option<&str>, progress: &mut dyn FnMut(u64, u64)) -> Result<bool> {
     let mut f = File::open(path)?;
-    let size = f.metadata()?.len();
+    let md = f.metadata()?;
+    let size = md.len();
     let mut c = Conn::connect(addr)?;
-    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
-    let head = format!(
-        "POST /u HTTP/1.1\r\nHost: qs\r\nX-Name: {}\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        enc(name),
-        size
-    );
+    let head = match link_rel {
+        Some(rel) => format!(
+            "POST /u HTTP/1.1\r\nHost: qs\r\nX-Name: {}\r\nX-Sync: 1\r\nX-Mtime: {}\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            enc(rel),
+            mtime_ms(&md),
+            size
+        ),
+        None => {
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
+            format!(
+                "POST /u HTTP/1.1\r\nHost: qs\r\nX-Name: {}\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                enc(name),
+                size
+            )
+        }
+    };
     c.send(head.as_bytes())?;
     let mut chunk = vec![0u8; SEND_BUF];
     let mut sent = 0u64;
@@ -233,4 +250,32 @@ pub fn send_files(addr: &str, files: &[PathBuf], progress: Option<&(dyn Fn(usize
         .into_iter()
         .filter(|ok| *ok)
         .count()
+}
+
+/// Notları (dosyaları) karşı cihazın Link klasörüne gönderir. `link_root` içindeki dosyalar göreli yollarıyla
+/// (alt klasör korunur), dışındakiler yalnızca adıyla Link köküne gider. Klasörler atlanır.
+/// Dönüş: başarıyla giden dosya sayısı.
+pub fn send_files_link(addr: &str, files: &[PathBuf], link_root: Option<&Path>, progress: Option<&(dyn Fn(usize, u64, u64) + Sync)>) -> usize {
+    let idx: Vec<usize> = (0..files.len()).collect();
+    par_map(&idx, SEND_WORKERS, &|&i: &usize| {
+        let f = &files[i];
+        if f.is_dir() {
+            return false;
+        }
+        let rel = link_root
+            .and_then(|r| f.strip_prefix(r).ok())
+            .and_then(|p| p.to_str())
+            .map(|s| s.to_string())
+            .or_else(|| f.file_name().and_then(|n| n.to_str()).map(|s| s.to_string()))
+            .unwrap_or_else(|| "file".to_string());
+        let mut p = |s: u64, t: u64| {
+            if let Some(pr) = progress {
+                pr(i, s, t)
+            }
+        };
+        send_file_link(addr, f, &rel, &mut p)
+    })
+    .into_iter()
+    .filter(|ok| *ok)
+    .count()
 }

@@ -44,7 +44,6 @@ struct RenameBar: View {
                 EditModeButton()
                 BottomIcons()
                 Spacer()
-                IconBtn(MI.paste, help: L("Yapıştır", "Paste")) { m.pasteIntoRename() }
                 // Kaydet simgesi kaldırıldı; ⌘S ve Enter ile kaydetme çalışmaya devam eder.
                 Button("") { m.saveRename() }
                     .keyboardShortcut("s", modifiers: .command)
@@ -52,7 +51,6 @@ struct RenameBar: View {
                     .frame(width: 0, height: 0)
                     .opacity(0)
                     .accessibilityHidden(true)
-                if !m.inlineRename { MoveButtons() }
             }
         }
         .padding(8)

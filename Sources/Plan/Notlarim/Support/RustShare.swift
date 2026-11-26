@@ -101,11 +101,24 @@ enum RustShare {
     // MARK: Gönderme
 
     /// Dosyaları `addr` (`ip:port`) adresine gönderir; klasörler zip'lenir. Engelleyicidir (arka plan kuyruğunda çağır).
+    /// `toLink` true ise dosyalar karşı cihazın Link klasörüne gider (`linkRoot` içindekiler göreli yolla), aksi halde indirme klasörüne.
     /// Dönüş: başarıyla giden dosya sayısı.
-    static func send(_ files: [URL], toAddress addr: String) -> Int {
+    static func send(_ files: [URL], toAddress addr: String, toLink: Bool = false, linkRoot: URL? = nil) -> Int {
         var blob = Data()
         for f in files { appendStr(&blob, f.path) }
         let a = Array(addr.utf8)
+        if toLink {
+            let lr = Array((linkRoot?.path ?? "").utf8)
+            let n = a.withUnsafeBufferPointer { ap in
+                lr.withUnsafeBufferPointer { lp in
+                    blob.withUnsafeBytes { bp in
+                        plan_qs_send_link(ap.baseAddress, ap.count, bp.bindMemory(to: UInt8.self).baseAddress, bp.count,
+                                          lp.baseAddress, lp.count, nil, nil)
+                    }
+                }
+            }
+            return Int(max(n, 0))
+        }
         let n = a.withUnsafeBufferPointer { ap in
             blob.withUnsafeBytes { bp in
                 plan_qs_send(ap.baseAddress, ap.count, bp.bindMemory(to: UInt8.self).baseAddress, bp.count, nil, nil)

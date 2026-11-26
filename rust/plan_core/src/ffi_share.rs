@@ -122,6 +122,36 @@ pub unsafe extern "C" fn plan_qs_send(
     .unwrap_or(-1)
 }
 
+/// Dosyaları `addr` adresindeki cihazın Link klasörüne gönderir (`X-Sync: 1`). `link_root` içindeki dosyalar göreli
+/// yollarıyla gider; `link_len` 0 ise yalnızca adlarıyla Link köküne. Klasörler atlanır. Dönüş: giden dosya sayısı (panik: -1).
+#[no_mangle]
+pub unsafe extern "C" fn plan_qs_send_link(
+    addr: *const u8,
+    addr_len: usize,
+    paths: *const u8,
+    paths_len: usize,
+    link_root: *const u8,
+    link_len: usize,
+    progress: ProgressCb,
+    ctx: *mut c_void,
+) -> i32 {
+    let addr = string(addr, addr_len);
+    let Some(list) = str_list(bytes(paths, paths_len)) else { return -1 };
+    let files: Vec<PathBuf> = list.into_iter().map(PathBuf::from).collect();
+    let root = if link_len == 0 { None } else { Some(PathBuf::from(string(link_root, link_len))) };
+    let ctx = ctx as usize;
+    catch_unwind(AssertUnwindSafe(|| {
+        let p = |i: usize, s: u64, t: u64| {
+            if let Some(f) = progress {
+                unsafe { f(ctx as *mut c_void, i as u32, s, t) }
+            }
+        };
+        let pr: Option<&(dyn Fn(usize, u64, u64) + Sync)> = if progress.is_some() { Some(&p) } else { None };
+        client::send_files_link(&addr, &files, root.as_deref(), pr) as i32
+    }))
+    .unwrap_or(-1)
+}
+
 /// Link eşitlemesi. mode: 0 iki cihazda aynı, 1 bu cihaza göre, 2 karşıdakine göre.
 /// peers: [ad: str][adres `ip:port`: str]… Engelleyicidir.
 /// Çıktı: [başarılı u8: 1=hatasız][gönderilen u32][alınan u32][silinen u32][cihaz u32][özet: str]

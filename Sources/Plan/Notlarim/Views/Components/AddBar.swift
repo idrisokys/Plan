@@ -31,11 +31,11 @@ struct AddBar: View {
                 EditModeButton()
                 BottomIcons()
                 Spacer()
-                IconBtn(MI.search, help: L("Ara", "Search")) { m.startSearch() }
-                    .disabled(!canAdd)
+                IconBtn(MI.paste, help: L("Yapıştır", "Paste")) { m.paste() }
                 IconBtn(MI.close, help: L("Temizle", "Clear")) { m.linkText = "" }
                     .disabled(m.linkText.isEmpty)
-                IconBtn(MI.paste, help: L("Yapıştır", "Paste")) { m.paste() }
+                IconBtn(MI.search, help: L("Ara", "Search")) { m.startSearch() }
+                    .disabled(!canAdd)
             }
         }
         .padding(8)

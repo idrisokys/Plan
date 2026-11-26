@@ -51,6 +51,12 @@ void plan_qs_server_stop(void *handle);
 int32_t plan_qs_send(const uint8_t *addr, size_t addr_len, const uint8_t *paths, size_t paths_len,
                      plan_qs_progress_cb progress, void *ctx);
 
+// Dosyaları karşı cihazın Link klasörüne gönderir (X-Sync). link_root içindekiler göreli yolla; link_len=0 ise ada göre kök.
+// Girdi: [yol: u32 uzunluk + bayt]…  Klasörler atlanır. Dönüş: giden dosya sayısı, panikte -1.
+int32_t plan_qs_send_link(const uint8_t *addr, size_t addr_len, const uint8_t *paths, size_t paths_len,
+                          const uint8_t *link_root, size_t link_len,
+                          plan_qs_progress_cb progress, void *ctx);
+
 // mode: 0 iki cihazda aynı, 1 bu cihaza göre, 2 karşıdakine göre. Engelleyici.
 // peers = [ad: str][adres: str]…   Çıktı: [hatasız u8][gönderilen u32][alınan u32][silinen u32][cihaz u32]
 //   [özet: str][hata sayısı u32][hata: str…]

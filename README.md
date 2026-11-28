@@ -17,7 +17,9 @@ Tek uygulama, iki parça:
 - Herhangi bir uygulamada metin seç → Hizmetler → **"Notlarıma Kaydet"** (ilk seferde Sistem Ayarları > Klavye >
   Klavye Kısayolları > Hizmetler'den açman gerekebilir). Link ise sayfa başlığı otomatik alınır.
 - **Küresel kısayol (Hızlı Kaydet)**: herhangi bir uygulamada metin ya da link seç, **⌃⌥N**'ye bas → Notlarım'a kaydedilir
-  (link → link, kısa metin → not, 116 karakterden uzun → .txt). Seçili metin yoksa panodaki metin kaydedilir.
+  (link → link, kısa metin → not, 116 karakterden uzun → .txt). Seçili metin yoksa panodaki içerik kullanılır; `https://` yazmayan adresler (www.site.com, site.com/yol) de link sayılır.
+  **Dosya ya da klasör seçiliyken** (Finder'da vb.) aynı kısayol, açık cihazları gösteren Hızlı Paylaş panelini açar; cihaza dokununca dosyalar gönderilir
+  (Hızlı Paylaş kapalıysa kendiliğinden açılır).
   Kısayolu değiştirmek için menü çubuğu simgesine **sağ tık → Kısayolu Değiştir…**: açılan pencerede
   yeni tuş kombinasyonuna bas; **Sıfırla** varsayılana döner, **Kapat** kısayolu devre dışı bırakır. Aynı menüde **Seçili Metni Kaydet**
   kısayolla aynı işi yapar. İlk kullanımda **Sistem Ayarları → Gizlilik ve Güvenlik → Erişilebilirlik** izni gerekir (seçili metni okumak

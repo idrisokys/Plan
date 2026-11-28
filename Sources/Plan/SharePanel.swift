@@ -1,8 +1,9 @@
 import SwiftUI
 import AppKit
 
-/// Finder'ın Paylaş menüsünden gelen dosyalar için "açık cihaz seç" paneli.
-/// Hızlı Paylaş kapalıysa açılır; listeden cihaza dokununca dosyalar gönderilir, bitince panel kapanır.
+/// Finder'ın Paylaş menüsünden ve Hızlı Kaydet kısayolundan gelen dosyalar için "açık cihaz seç" paneli.
+/// İçerik Notlarım'daki Paylaş penceresiyle ORTAK: `QuickShareSheet` (Hızlı Paylaş'ı açma, cihaz arama, gönderme orada).
+/// Bu sınıf yalnızca onu serbest bir panele koyar.
 @MainActor
 final class SharePanel {
     static let shared = SharePanel()
@@ -11,7 +12,6 @@ final class SharePanel {
     func show(files: [URL]) {
         let files = files.filter { FileManager.default.fileExists(atPath: $0.path) }
         guard !files.isEmpty else { return }
-        if !QuickShare.shared.running { QuickShare.shared.start() }
         close()
 
         let view = QuickShareSheet(files: files) { [weak self] in self?.close() }

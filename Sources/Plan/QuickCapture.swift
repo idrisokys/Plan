@@ -156,7 +156,7 @@ enum QuickCapture {
 
     fileprivate static func hotKeyPressed() { run() }
 
-    /// Seçili metni (yoksa panodakini) alıp Notlarım'a kaydeder.
+    /// Seçili metni (yoksa panodakini) Notlarım'a kaydeder; dosya(lar) seçiliyse açık cihazlara gönderme panelini açar.
     static func run() {
         guard !busy else { return }
         // Başka uygulamadan seçimi okumak / ⌘C göndermek için Erişilebilirlik izni gerekir.
@@ -170,12 +170,15 @@ enum QuickCapture {
         busy = true
         Task { @MainActor in
             defer { busy = false }
-            let text = await captureSelection()
-            guard let text, !text.trimmed.isEmpty else {
-                HUD.show(L("Kaydedilecek metin bulunamadı", "Nothing to save"))
-                return
+            switch await captureSelection() {
+            case .files(let urls):
+                // Dosya(lar) seçiliyken: açık cihaz seçme paneli (Finder Paylaş menüsündeki ile aynı).
+                SharePanel.shared.show(files: urls)
+            case .text(let t) where !t.trimmed.isEmpty:
+                save(t)
+            default:
+                HUD.show(L("Kaydedilecek metin ya da dosya bulunamadı", "Nothing to save or send"))
             }
-            save(text)
         }
     }
 
@@ -196,10 +199,12 @@ enum QuickCapture {
 
     // MARK: Seçimi yakalama
 
-    /// 1) Erişilebilirlik ile seçili metin (panoya dokunmaz), 2) olmazsa ⌘C gönderip panoyu okur ve eski panoyu geri koyar,
-    /// 3) hiçbir şey seçili değilse panodaki mevcut metin.
-    private static func captureSelection() async -> String? {
-        if let s = axSelectedText(), !s.trimmed.isEmpty { return s }
+    private enum Captured { case text(String), files([URL]) }
+
+    /// 1) Erişilebilirlik ile seçili metin (panoya dokunmaz), 2) olmazsa ⌘C gönderip panoyu okur (dosya mı metin mi) ve eski panoyu geri koyar,
+    /// 3) hiçbir şey seçili değilse panodaki mevcut içerik (kopyalanmış dosya ya da metin).
+    private static func captureSelection() async -> Captured? {
+        if let s = axSelectedText(), !s.trimmed.isEmpty { return .text(normalizeLink(s)) }
 
         let pb = NSPasteboard.general
         let snapshot = snapshotPasteboard(pb)
@@ -214,13 +219,41 @@ enum QuickCapture {
             try? await Task.sleep(nanoseconds: 20_000_000)
             if pb.changeCount != before { changed = true; break }
         }
-        if changed {
-            let s = pb.string(forType: .string)
-            restorePasteboard(pb, snapshot)
-            return s
+        let result = pasteboardContent(pb)
+        if changed { restorePasteboard(pb, snapshot) }
+        return result
+        // changed == false: seçim yok; panoda zaten kopyalanmış içerik varsa o kullanıldı.
+    }
+
+    /// Panodaki içerik: dosya(lar) varsa dosyalar; yoksa metin (link sayfa adresi olarak da gelmiş olabilir).
+    private static func pasteboardContent(_ pb: NSPasteboard) -> Captured? {
+        if let urls = pb.readObjects(forClasses: [NSURL.self],
+                                     options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
+            return .files(urls)
         }
-        // Seçim yok: panoda zaten kopyalanmış metin varsa onu kaydet.
-        return pb.string(forType: .string)
+        let str = pb.string(forType: .string)?.trimmed ?? ""
+        if NotesStore.extractUrl(str) != nil { return .text(str) }
+        // Tarayıcı "Bağlantıyı Kopyala" gibi durumlarda adres ayrı bir pano türünde gelebilir.
+        if let u = pb.string(forType: .URL)?.trimmed, NotesStore.extractUrl(u) != nil { return .text(u) }
+        return str.isEmpty ? nil : .text(normalizeLink(str))
+    }
+
+    /// Tek parça, "https://" yazmayan adresleri (www.site.com, site.com/yol, site.com) link yapar;
+    /// böylece Notlarım'ın link kuralı (başlık alma, link olarak kaydetme) onlara da uygulanır.
+    static func normalizeLink(_ text: String) -> String {
+        let t = text.trimmed
+        guard !t.isEmpty, !t.contains(where: { $0.isWhitespace }), NotesStore.extractUrl(t) == nil,
+              !t.contains("://"), !t.contains("@") else { return text }
+        let host = #"(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}"#
+        let rest = #"(?::\d+)?(?:[/?#]\S*)?"#
+        let hasPathOrWWW = t.lowercased().hasPrefix("www.") || t.contains("/") || t.contains("?")
+        let common = ["com", "net", "org", "io", "co", "app", "dev", "edu", "gov", "info", "tv", "me", "ai", "tr", "xyz", "ly", "be"]
+        let hostPart = String(t.split(whereSeparator: { "/?#".contains($0) }).first ?? "")
+        let tld = hostPart.split(separator: ".").last.map { String($0).lowercased() } ?? ""
+        let plainDomainOK = common.contains(tld.split(separator: ":").first.map(String.init) ?? tld)
+        guard t.range(of: "^" + host + rest + "$", options: [.regularExpression, .caseInsensitive]) != nil,
+              hasPathOrWWW || plainDomainOK else { return text }
+        return "https://" + t
     }
 
     private static func axSelectedText() -> String? {

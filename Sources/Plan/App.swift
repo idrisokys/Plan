@@ -97,6 +97,14 @@ final class StatusItemController: NSObject {
             folder.target = self
             let quit = NSMenuItem(title: L("Çık", "Quit"), action: #selector(quit), keyEquivalent: "")
             quit.target = self
+            let keyTxt = QuickCapture.enabled ? QuickCapture.shortcut.display : L("Kapalı", "Off")
+            let save = NSMenuItem(title: L("Seçili Metni Kaydet", "Save Selection") + "   " + keyTxt,
+                                  action: #selector(saveSelectionNow), keyEquivalent: "")
+            save.target = self
+            let change = NSMenuItem(title: L("Kısayolu Değiştir…", "Change Shortcut…"),
+                                    action: #selector(changeShortcut), keyEquivalent: "")
+            change.target = self
+            m.addItem(save); m.addItem(change); m.addItem(.separator())
             m.addItem(notes); m.addItem(rec); m.addItem(folder); m.addItem(.separator()); m.addItem(quit)
             item?.menu = m
             item?.button?.performClick(nil)
@@ -106,6 +114,12 @@ final class StatusItemController: NSObject {
         }
     }
     @objc private func openNotes() { NotesWindow.show() }
+
+    /// Menüden elle tetikleme (kısayolla aynı iş).
+    @objc private func saveSelectionNow() { QuickCapture.run() }
+
+    /// Kısayolu değiştirme penceresi.
+    @objc private func changeShortcut() { ShortcutSettings.shared.show() }
 
     /// Paylaşımla gelen dosyaların kaydedileceği klasörü seçtirir (UserDefaults "recvDir").
     @objc private func chooseSaveLocation() {
@@ -134,6 +148,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             StatusItemController.shared.install()
             FloatingBar.shared.show(focus: false)      // arama çubuğu varsayılan olarak sağ altta sabit açılır
+            if !QuickCapture.apply() {                 // küresel "Seçili metni Notlarım'a kaydet" kısayolu
+                HUD.show(L("Kısayol kaydedilemedi; başka uygulama kullanıyor olabilir. Menü çubuğu simgesine sağ tıkla → Kısayolu Değiştir",
+                           "Couldn't register shortcut; right-click the menu bar icon → Change Shortcut"))
+            }
         }
         if UserDefaults.standard.bool(forKey: "qsOn") { QuickShare.shared.start() }
     }

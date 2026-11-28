@@ -16,6 +16,12 @@ Tek uygulama, iki parça:
 - Enter / "Ekle": link ise `~/Link/Url` klasörüne .url (Notlarım'da başka bir alt klasörün içindeyken orada kalır), kısa metin not, 116 karakterden uzunsa .txt olarak kaydeder.
 - Herhangi bir uygulamada metin seç → Hizmetler → **"Notlarıma Kaydet"** (ilk seferde Sistem Ayarları > Klavye >
   Klavye Kısayolları > Hizmetler'den açman gerekebilir). Link ise sayfa başlığı otomatik alınır.
+- **Küresel kısayol (Hızlı Kaydet)**: herhangi bir uygulamada metin ya da link seç, **⌃⌥N**'ye bas → Notlarım'a kaydedilir
+  (link → link, kısa metin → not, 116 karakterden uzun → .txt). Seçili metin yoksa panodaki metin kaydedilir.
+  Kısayolu değiştirmek için menü çubuğu simgesine **sağ tık → Kısayolu Değiştir…**: açılan pencerede
+  yeni tuş kombinasyonuna bas; **Sıfırla** varsayılana döner, **Kapat** kısayolu devre dışı bırakır. Aynı menüde **Seçili Metni Kaydet**
+  kısayolla aynı işi yapar. İlk kullanımda **Sistem Ayarları → Gizlilik ve Güvenlik → Erişilebilirlik** izni gerekir (seçili metni okumak
+  için). Kod: `Sources/Plan/QuickCapture.swift`, `ShortcutSettings.swift`.
 - Hızlı Paylaş (Android'deki aynı protokol): soldaki anten düğmesi = ağdan dosya almayı aç/kapat (açıkken açık mavi "ON"). Paylaşım ekranındaki "Alındı" satırına tıklayınca dosyanın kaydedildiği klasör açılır. Paylaşım açıkken altta açık cihazlar listelenir; klasör simgesiyle dosya gönderirsin.
 
 - Menü çubuğu simgesine sağ tık: **Notlarım**, **Kayıt yeri** (paylaşımla gelen dosyaların klasörünü seç), **Notlarım klasörü** (~/Link'i Finder'da aç), Çık.
@@ -54,6 +60,8 @@ Sources/Plan/
 ├── App.swift            # Giriş: Notlarım penceresi (Window), menü çubuğu simgesi (StatusItemController), AppDelegate, Hizmetler
 ├── ContentView.swift    # Arama çubuğu (ekleme: NotesStore.submit; arama Notlarım penceresinde: NotesModel.externalSearch)
 ├── FloatingBar.swift    # Arama çubuğunu sağ alt köşeye sabitleyen yüzen panel; menü çubuğu simgesi göster/gizle
+├── QuickCapture.swift   # Küresel kısayol + seçili metni yakalayıp Notlarım'a kaydetme
+├── ShortcutSettings.swift # Kısayolu değiştirme penceresi (tuş yakalayıcı)
 ├── QuickShare.swift     # Hızlı Paylaş: Bonjour + durum; ağ/dosya işi Rust'ta (RustShare köprüsü)
 └── Notlarim/            # Notlarım kodu (Models, Store, Services, ViewModel, Views, Support)
 Tests/PlanTests/      # Notlarım depolama katmanı testleri

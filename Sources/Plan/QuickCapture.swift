@@ -186,13 +186,24 @@ enum QuickCapture {
         guard let root = NotesStore.root else {
             HUD.show(L("Link klasörü bulunamadı", "Link folder not found")); return
         }
+        let t = text.trimmed
         Task { @MainActor in
-            let r = await NotesStore.submit(root, text)
-            NotesModel.shared.reload()
-            switch r {
-            case .added:    HUD.show(L("Notlarıma kaydedildi", "Saved to My Notes"))
-            case .textFile: HUD.show(L("Notlarıma metin dosyası olarak kaydedildi", "Saved to My Notes as a text file"))
-            case .failed:   HUD.show(L("Kaydedilemedi", "Couldn't save"))
+            if isLink(t) {
+                // Link: "://" yoksa https:// eklenir; başlık sayfadan alınır, alınamazsa alan adı kullanılır.
+                let url = t.contains("://") ? t : "https://" + t
+                let title = await PageTitle.fetch(url) ?? NotesStore.makeURL(url)?.host ?? t
+                let ok = NotesStore.addLink(root, title: title, url: url)
+                NotesModel.shared.reload()
+                HUD.show(ok ? L("Notlarıma kaydedildi", "Saved to My Notes") : L("Kaydedilemedi", "Couldn't save"))
+            } else if t.count > NotesStore.addMax {
+                let ok = NotesStore.addTextFile(root, text: t)
+                NotesModel.shared.reload()
+                HUD.show(ok ? L("Notlarıma metin dosyası olarak kaydedildi", "Saved to My Notes as a text file")
+                            : L("Kaydedilemedi", "Couldn't save"))
+            } else {
+                let ok = NotesStore.addNote(root, text: t)
+                NotesModel.shared.reload()
+                HUD.show(ok ? L("Notlarıma kaydedildi", "Saved to My Notes") : L("Kaydedilemedi", "Couldn't save"))
             }
         }
     }
@@ -204,7 +215,7 @@ enum QuickCapture {
     /// 1) Erişilebilirlik ile seçili metin (panoya dokunmaz), 2) olmazsa ⌘C gönderip panoyu okur (dosya mı metin mi) ve eski panoyu geri koyar,
     /// 3) hiçbir şey seçili değilse panodaki mevcut içerik (kopyalanmış dosya ya da metin).
     private static func captureSelection() async -> Captured? {
-        if let s = axSelectedText(), !s.trimmed.isEmpty { return .text(normalizeLink(s)) }
+        if let s = axSelectedText(), !s.trimmed.isEmpty { return .text(s) }
 
         let pb = NSPasteboard.general
         let snapshot = snapshotPasteboard(pb)
@@ -231,29 +242,17 @@ enum QuickCapture {
                                      options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
             return .files(urls)
         }
-        let str = pb.string(forType: .string)?.trimmed ?? ""
-        if NotesStore.extractUrl(str) != nil { return .text(str) }
-        // Tarayıcı "Bağlantıyı Kopyala" gibi durumlarda adres ayrı bir pano türünde gelebilir.
-        if let u = pb.string(forType: .URL)?.trimmed, NotesStore.extractUrl(u) != nil { return .text(u) }
-        return str.isEmpty ? nil : .text(normalizeLink(str))
+        // Tarayıcı "Bağlantıyı Kopyala" gibi durumlarda adres yalnızca ayrı bir pano türünde gelebilir.
+        let str = pb.string(forType: .string)?.trimmed ?? pb.string(forType: .URL)?.trimmed ?? ""
+        return str.isEmpty ? nil : .text(str)
     }
 
-    /// Tek parça, "https://" yazmayan adresleri (www.site.com, site.com/yol, site.com) link yapar;
-    /// böylece Notlarım'ın link kuralı (başlık alma, link olarak kaydetme) onlara da uygulanır.
-    static func normalizeLink(_ text: String) -> String {
+    /// Link kuralı (tek ve basit): boşluk (ya da satır sonu) içeren veri link DEĞİLDİR; boşluksuz ama nokta ya da "/" içermeyen
+    /// tek kelime de link değildir. Geri kalan her veri link olarak kaydedilir.
+    static func isLink(_ text: String) -> Bool {
         let t = text.trimmed
-        guard !t.isEmpty, !t.contains(where: { $0.isWhitespace }), NotesStore.extractUrl(t) == nil,
-              !t.contains("://"), !t.contains("@") else { return text }
-        let host = #"(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}"#
-        let rest = #"(?::\d+)?(?:[/?#]\S*)?"#
-        let hasPathOrWWW = t.lowercased().hasPrefix("www.") || t.contains("/") || t.contains("?")
-        let common = ["com", "net", "org", "io", "co", "app", "dev", "edu", "gov", "info", "tv", "me", "ai", "tr", "xyz", "ly", "be"]
-        let hostPart = String(t.split(whereSeparator: { "/?#".contains($0) }).first ?? "")
-        let tld = hostPart.split(separator: ".").last.map { String($0).lowercased() } ?? ""
-        let plainDomainOK = common.contains(tld.split(separator: ":").first.map(String.init) ?? tld)
-        guard t.range(of: "^" + host + rest + "$", options: [.regularExpression, .caseInsensitive]) != nil,
-              hasPathOrWWW || plainDomainOK else { return text }
-        return "https://" + t
+        guard !t.isEmpty, !t.contains(where: { $0.isWhitespace }) else { return false }
+        return t.contains(".") || t.contains("/")
     }
 
     private static func axSelectedText() -> String? {

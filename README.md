@@ -16,8 +16,9 @@ Tek uygulama, iki parça:
 - Enter / "Ekle": link ise `~/Link/Url` klasörüne .url (Notlarım'da başka bir alt klasörün içindeyken orada kalır), kısa metin not, 116 karakterden uzunsa .txt olarak kaydeder.
 - Herhangi bir uygulamada metin seç → Hizmetler → **"Notlarıma Kaydet"** (ilk seferde Sistem Ayarları > Klavye >
   Klavye Kısayolları > Hizmetler'den açman gerekebilir). Link ise sayfa başlığı otomatik alınır.
-- **Küresel kısayol (Hızlı Kaydet)**: herhangi bir uygulamada metin ya da link seç, **⌃⌥N**'ye bas → Notlarım'a kaydedilir
-  (link → link, kısa metin → not, 116 karakterden uzun → .txt). Seçili metin yoksa panodaki içerik kullanılır; `https://` yazmayan adresler (www.site.com, site.com/yol) de link sayılır.
+- **Küresel kısayol (Hızlı Kaydet)**: herhangi bir uygulamada metin ya da link seç, **⌃⌥N**'ye bas → Notlarım'a kaydedilir.
+  Seçili metin yoksa panodaki içerik kullanılır. Kayıt kuralı basit: **boşluk içeren veri link değildir** (kısa ise not, 116 karakterden uzunsa .txt);
+  boşluksuz ve nokta ya da `/` içeren her veri **link** olarak kaydedilir (`://` yoksa başına `https://` eklenir); nokta/`/` içermeyen tek kelime not olur.
   **Dosya ya da klasör seçiliyken** (Finder'da vb.) aynı kısayol, açık cihazları gösteren Hızlı Paylaş panelini açar; cihaza dokununca dosyalar gönderilir
   (Hızlı Paylaş kapalıysa kendiliğinden açılır).
   Kısayolu değiştirmek için menü çubuğu simgesine **sağ tık → Kısayolu Değiştir…**: açılan pencerede

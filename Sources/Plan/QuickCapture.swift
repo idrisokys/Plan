@@ -12,10 +12,11 @@ struct Shortcut: Codable, Equatable {
 
     static let relevant: NSEvent.ModifierFlags = [.control, .option, .shift, .command]
 
-    /// Varsayılan: ⌃⌥N
-    static let `default` = Shortcut(keyCode: UInt32(kVK_ANSI_N),
-                                    modifiers: NSEvent.ModifierFlags([.control, .option]).rawValue,
-                                    label: "N")
+    /// Varsayılanlar: Notlarıma kaydet ⌃⌥N, cihazlara gönder ⌃⌥S
+    static let saveDefault = Shortcut(keyCode: UInt32(kVK_ANSI_N),
+                                      modifiers: NSEvent.ModifierFlags([.control, .option]).rawValue, label: "N")
+    static let sendDefault = Shortcut(keyCode: UInt32(kVK_ANSI_S),
+                                      modifiers: NSEvent.ModifierFlags([.control, .option]).rawValue, label: "S")
 
     var flags: NSEvent.ModifierFlags { NSEvent.ModifierFlags(rawValue: modifiers).intersection(Shortcut.relevant) }
 
@@ -86,78 +87,110 @@ struct Shortcut: Codable, Equatable {
 
 // MARK: - Küresel kısayol kaydı (Carbon; erişilebilirlik izni gerektirmez)
 
-private let hotKeyHandler: EventHandlerUPP = { _, _, _ in
-    Task { @MainActor in QuickCapture.hotKeyPressed() }
+private let hotKeyHandler: EventHandlerUPP = { _, event, _ in
+    var hk = EventHotKeyID()
+    let st = GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+                               nil, MemoryLayout<EventHotKeyID>.size, nil, &hk)
+    guard st == noErr else { return st }
+    let id = hk.id
+    Task { @MainActor in QuickCapture.hotKeyPressed(id) }
     return noErr
 }
 
-/// Küresel kısayol + "seçili metni yakala → Notlarım'a kaydet" akışı.
+/// İki küresel kısayol:
+///  • `.send`: seçili metin / link / dosyalar açık cihazlara gönderilir (metin ve link, Notlarım kayıt biçimine çevrilerek).
+///  • `.save`: seçili metin / link Notlarım'a eklenir.
 @MainActor
 enum QuickCapture {
-    private static let defaultsKey = "quickSaveShortcut"
-    private static let enabledKey = "quickSaveEnabled"
-    private static var hotKeyRef: EventHotKeyRef?
+    enum Action: UInt32, CaseIterable {
+        case save = 1, send = 2
+
+        var title: String {
+            switch self {
+            case .save: return L("Notlarıma Kaydet", "Save to My Notes")
+            case .send: return L("Cihazlara Gönder", "Send to Devices")
+            }
+        }
+        var detail: String {
+            switch self {
+            case .save: return L("Seçili metin ya da link Notlarım'a eklenir.", "Selected text or link is added to My Notes.")
+            case .send: return L("Seçili metin, link ve dosyalar açık cihazlara gönderilir.", "Selected text, links and files are sent to open devices.")
+            }
+        }
+        var defaultShortcut: Shortcut { self == .save ? .saveDefault : .sendDefault }
+        fileprivate var shortcutKey: String { self == .save ? "quickSaveShortcut" : "quickSendShortcut" }
+        fileprivate var enabledKey: String { self == .save ? "quickSaveEnabled" : "quickSendEnabled" }
+    }
+
+    private static var hotKeyRefs: [UInt32: EventHotKeyRef] = [:]
     private static var handlerInstalled = false
     private static var busy = false
 
     // MARK: Ayarlar
 
-    /// Geçerli kısayol (kayıtlı yoksa varsayılan).
-    static var shortcut: Shortcut {
-        get {
-            if let d = UserDefaults.standard.data(forKey: defaultsKey),
-               let s = try? JSONDecoder().decode(Shortcut.self, from: d) { return s }
-            return .default
-        }
-        set {
-            if let d = try? JSONEncoder().encode(newValue) { UserDefaults.standard.set(d, forKey: defaultsKey) }
-        }
+    static func shortcut(_ a: Action) -> Shortcut {
+        if let d = UserDefaults.standard.data(forKey: a.shortcutKey),
+           let s = try? JSONDecoder().decode(Shortcut.self, from: d) { return s }
+        return a.defaultShortcut
     }
 
-    /// Kısayol açık mı? (Varsayılan: açık)
-    static var enabled: Bool {
-        get { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
+    static func setShortcut(_ s: Shortcut, for a: Action) {
+        if let d = try? JSONEncoder().encode(s) { UserDefaults.standard.set(d, forKey: a.shortcutKey) }
     }
+
+    static func enabled(_ a: Action) -> Bool {
+        UserDefaults.standard.object(forKey: a.enabledKey) as? Bool ?? true
+    }
+
+    static func setEnabled(_ on: Bool, for a: Action) { UserDefaults.standard.set(on, forKey: a.enabledKey) }
+
+    /// Menüde / pencerede görünen kısayol metni ("⌃⌥N" ya da "Kapalı").
+    static func display(_ a: Action) -> String { enabled(a) ? shortcut(a).display : L("Kapalı", "Off") }
 
     // MARK: Kayıt
 
-    /// Kayıtlı ayara göre kısayolu sisteme tanıtır (açılışta ve her değişiklikte çağrılır).
+    /// Kayıtlı ayarlara göre tüm kısayolları sisteme tanıtır. Kaydedilemeyen (başka uygulama kullanıyor) eylemleri döndürür.
     @discardableResult
-    static func apply() -> Bool {
-        unregister()
-        guard enabled else { return true }
-        return register(shortcut)
+    static func apply() -> [Action] {
+        unregisterAll()
+        var failed: [Action] = []
+        for a in Action.allCases where enabled(a) {
+            if !register(a) { failed.append(a) }
+        }
+        return failed
     }
 
-    /// Kısayol penceresi açıkken (tuş yakalanırken) geçici olarak devre dışı bırakır.
-    static func suspend() { unregister() }
+    /// Kısayol penceresi açıkken (tuş yakalanırken) geçici olarak hepsini devre dışı bırakır.
+    static func suspend() { unregisterAll() }
 
-    private static func register(_ s: Shortcut) -> Bool {
+    private static func register(_ a: Action) -> Bool {
         if !handlerInstalled {
             var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-            let st = InstallEventHandler(GetApplicationEventTarget(), hotKeyHandler, 1, &spec, nil, nil)
-            guard st == noErr else { return false }
+            guard InstallEventHandler(GetApplicationEventTarget(), hotKeyHandler, 1, &spec, nil, nil) == noErr else { return false }
             handlerInstalled = true
         }
-        let id = EventHotKeyID(signature: OSType(0x504C414E), id: 1)      // 'PLAN'
+        let s = shortcut(a)
+        let id = EventHotKeyID(signature: OSType(0x504C414E), id: a.rawValue)      // 'PLAN'
         var ref: EventHotKeyRef?
         let st = RegisterEventHotKey(s.keyCode, s.carbonModifiers, id, GetApplicationEventTarget(), 0, &ref)
-        guard st == noErr, let ref else { return false }                    // başka uygulama aynı kısayolu tutuyorsa hata verir
-        hotKeyRef = ref
+        guard st == noErr, let ref else { return false }                              // başka uygulama aynı kısayolu tutuyorsa hata verir
+        hotKeyRefs[a.rawValue] = ref
         return true
     }
 
-    private static func unregister() {
-        if let r = hotKeyRef { UnregisterEventHotKey(r); hotKeyRef = nil }
+    private static func unregisterAll() {
+        for (_, r) in hotKeyRefs { UnregisterEventHotKey(r) }
+        hotKeyRefs.removeAll()
     }
 
     // MARK: Tetikleme
 
-    fileprivate static func hotKeyPressed() { run() }
+    fileprivate static func hotKeyPressed(_ id: UInt32) {
+        if let a = Action(rawValue: id) { run(a) }
+    }
 
-    /// Seçili metni (yoksa panodakini) Notlarım'a kaydeder; dosya(lar) seçiliyse açık cihazlara gönderme panelini açar.
-    static func run() {
+    /// Seçimi yakalar; eyleme göre Notlarım'a kaydeder ya da açık cihazlara göndermek için paylaşım panelini açar.
+    static func run(_ action: Action) {
         guard !busy else { return }
         // Başka uygulamadan seçimi okumak / ⌘C göndermek için Erişilebilirlik izni gerekir.
         guard AXIsProcessTrusted() else {
@@ -170,42 +203,69 @@ enum QuickCapture {
         busy = true
         Task { @MainActor in
             defer { busy = false }
-            switch await captureSelection() {
-            case .files(let urls):
-                // Dosya(lar) seçiliyken: açık cihaz seçme paneli (Finder Paylaş menüsündeki ile aynı).
+            let captured = await captureSelection()
+            switch (action, captured) {
+            case (.send, .files(let urls)?):
                 SharePanel.shared.show(files: urls)
-            case .text(let t) where !t.trimmed.isEmpty:
-                save(t)
+            case (.send, .text(let t)?) where !t.trimmed.isEmpty:
+                // Önce Notlarım'a aynen kaydedilir (aynı kural), sonra kaydedilen dosya açık cihazlara gönderilir.
+                let files = await saveToNotes(t, announce: false)
+                if !files.isEmpty { SharePanel.shared.show(files: files) }
+            case (.save, .text(let t)?) where !t.trimmed.isEmpty:
+                await saveToNotes(t, announce: true)
+            case (.save, .files?):
+                HUD.show(L("Dosyalar için “Cihazlara Gönder” kısayolunu kullanın", "Use the “Send to Devices” shortcut for files"))
             default:
-                HUD.show(L("Kaydedilecek metin ya da dosya bulunamadı", "Nothing to save or send"))
+                HUD.show(L("Seçili metin, link ya da dosya bulunamadı", "No selected text, link or file found"))
             }
         }
     }
 
-    private static func save(_ text: String) {
-        guard let root = NotesStore.root else {
-            HUD.show(L("Link klasörü bulunamadı", "Link folder not found")); return
-        }
+    // MARK: Ortak kayıt kuralı (Notlarım'a ekleme ve gönderme için aynı)
+
+    private enum Stored { case link, note, textFile, failed }
+
+    /// Ortak kural: boşluk içeren veri link değildir (kısa → not, 116 karakterden uzun → .txt); boşluksuz ve nokta ya da "/" içeren veri
+    /// link olarak yazılır (`://` yoksa başına https:// eklenir; başlık sayfadan alınır, alınamazsa alan adı).
+    private static func store(_ text: String, in dir: URL) async -> Stored {
         let t = text.trimmed
-        Task { @MainActor in
-            if isLink(t) {
-                // Link: "://" yoksa https:// eklenir; başlık sayfadan alınır, alınamazsa alan adı kullanılır.
-                let url = t.contains("://") ? t : "https://" + t
-                let title = await PageTitle.fetch(url) ?? NotesStore.makeURL(url)?.host ?? t
-                let ok = NotesStore.addLink(root, title: title, url: url)
-                NotesModel.shared.reload()
-                HUD.show(ok ? L("Notlarıma kaydedildi", "Saved to My Notes") : L("Kaydedilemedi", "Couldn't save"))
-            } else if t.count > NotesStore.addMax {
-                let ok = NotesStore.addTextFile(root, text: t)
-                NotesModel.shared.reload()
-                HUD.show(ok ? L("Notlarıma metin dosyası olarak kaydedildi", "Saved to My Notes as a text file")
-                            : L("Kaydedilemedi", "Couldn't save"))
-            } else {
-                let ok = NotesStore.addNote(root, text: t)
-                NotesModel.shared.reload()
-                HUD.show(ok ? L("Notlarıma kaydedildi", "Saved to My Notes") : L("Kaydedilemedi", "Couldn't save"))
-            }
+        if isLink(t) {
+            let url = t.contains("://") ? t : "https://" + t
+            let title = await PageTitle.fetch(url) ?? NotesStore.makeURL(url)?.host ?? t
+            return NotesStore.addLink(dir, title: title, url: url) ? .link : .failed
         }
+        if t.count > NotesStore.addMax { return NotesStore.addTextFile(dir, text: t) ? .textFile : .failed }
+        return NotesStore.addNote(dir, text: t) ? .note : .failed
+    }
+
+    /// Link kuralı (tek ve basit): boşluk (ya da satır sonu) içeren veri link DEĞİLDİR; boşluksuz ama nokta ya da "/" içermeyen
+    /// tek kelime de link değildir. Geri kalan her veri link olarak kaydedilir.
+    static func isLink(_ text: String) -> Bool {
+        let t = text.trimmed
+        guard !t.isEmpty, !t.contains(where: { $0.isWhitespace }) else { return false }
+        return t.contains(".") || t.contains("/")
+    }
+
+    /// Metni/linki Notlarım'a (ana Link klasörü) kaydeder ve oluşan dosyayı döndürür (başarısızsa boş).
+    /// `announce`: başarıda "kaydedildi" bildirimi gösterilsin mi (gönderirken paylaşım paneli açılacağı için gösterilmez).
+    @discardableResult
+    private static func saveToNotes(_ text: String, announce: Bool) async -> [URL] {
+        guard let root = NotesStore.root else {
+            HUD.show(L("Link klasörü bulunamadı", "Link folder not found")); return []
+        }
+        let fm = FileManager.default
+        let before = Set((try? fm.contentsOfDirectory(atPath: root.path)) ?? [])
+        let r = await store(text, in: root)
+        NotesModel.shared.reload()
+        if r == .failed { HUD.show(L("Kaydedilemedi", "Couldn't save")); return [] }
+        if announce {
+            HUD.show(r == .textFile ? L("Notlarıma metin dosyası olarak kaydedildi", "Saved to My Notes as a text file")
+                                    : L("Notlarıma kaydedildi", "Saved to My Notes"))
+        }
+        // Yeni oluşan dosya: kayıttan önce klasörde olmayan, gizli olmayan ad.
+        let after = (try? fm.contentsOfDirectory(atPath: root.path)) ?? []
+        return after.filter { !before.contains($0) && !$0.hasPrefix(".") }
+            .map { root.appendingPathComponent($0) }
     }
 
     // MARK: Seçimi yakalama
@@ -245,14 +305,6 @@ enum QuickCapture {
         // Tarayıcı "Bağlantıyı Kopyala" gibi durumlarda adres yalnızca ayrı bir pano türünde gelebilir.
         let str = pb.string(forType: .string)?.trimmed ?? pb.string(forType: .URL)?.trimmed ?? ""
         return str.isEmpty ? nil : .text(str)
-    }
-
-    /// Link kuralı (tek ve basit): boşluk (ya da satır sonu) içeren veri link DEĞİLDİR; boşluksuz ama nokta ya da "/" içermeyen
-    /// tek kelime de link değildir. Geri kalan her veri link olarak kaydedilir.
-    static func isLink(_ text: String) -> Bool {
-        let t = text.trimmed
-        guard !t.isEmpty, !t.contains(where: { $0.isWhitespace }) else { return false }
-        return t.contains(".") || t.contains("/")
     }
 
     private static func axSelectedText() -> String? {

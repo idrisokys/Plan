@@ -5,6 +5,7 @@ private final class RecorderView: NSView {
     var onCapture: ((Shortcut) -> Void)?
     var onCancel: (() -> Void)?
     var onInvalid: (() -> Void)?
+    var onActivate: (() -> Void)?
     var text = "" { didSet { needsDisplay = true } }
     var recording = true { didSet { needsDisplay = true } }
 
@@ -28,7 +29,7 @@ private final class RecorderView: NSView {
         s.draw(at: NSPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2))
     }
 
-    override func mouseDown(with event: NSEvent) { window?.makeFirstResponder(self) }
+    override func mouseDown(with event: NSEvent) { window?.makeFirstResponder(self); onActivate?() }
 
     /// ⌘ ile başlayan kombinasyonlar önce buraya gelir; uygulamanın kendi menü kısayollarına kaçmasın.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -50,81 +51,101 @@ private final class RecorderView: NSView {
     }
 }
 
-/// Menü çubuğu simgesinden açılan "Kısayol" penceresi: kısayolu görür, yeni tuşa basarak değiştirir, kapatır ya da sıfırlar.
+/// Menü çubuğu simgesinden açılan "Kısayollar" penceresi: iki kısayol (Cihazlara Gönder, Notlarıma Kaydet).
+/// Her biri için yeni tuşa basarak değiştirir, kapatır ya da sıfırlarsın.
 @MainActor
 final class ShortcutSettings: NSObject, NSWindowDelegate {
     static let shared = ShortcutSettings()
 
+    private final class Row {
+        let action: QuickCapture.Action
+        let recorder = RecorderView(frame: NSRect(x: 0, y: 0, width: 300, height: 48))
+        let hint = NSTextField(wrappingLabelWithString: "")
+        let toggleBtn = NSButton(title: "", target: nil, action: nil)
+        init(_ a: QuickCapture.Action) { action = a }
+    }
+
     private var window: NSPanel?
-    private let recorder = RecorderView(frame: NSRect(x: 0, y: 0, width: 300, height: 56))
-    private let hint = NSTextField(wrappingLabelWithString: "")
-    private let toggleBtn = NSButton(title: "", target: nil, action: nil)
+    private var rows: [Row] = []
 
     func show() {
         if window == nil { build() }
         QuickCapture.suspend()               // aynı kombinasyona basınca kısayol çalışmasın, tuş yakalayıcıya ulaşsın
-        refresh()
-        startRecording()
+        rows.forEach { refresh($0) }
         NSApp.activate(ignoringOtherApps: true)
         window?.center()
         window?.makeKeyAndOrderFront(nil)
-        window?.makeFirstResponder(recorder)
     }
 
+    private func row(for tag: Int) -> Row? { rows.first { Int($0.action.rawValue) == tag } }
+
     private func build() {
-        let w = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 228),
+        let w = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 420),
                         styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        w.title = L("Hızlı Kaydet Kısayolu", "Quick Save Shortcut")
+        w.title = L("Kısayollar", "Shortcuts")
         w.isReleasedWhenClosed = false
         w.level = .floating
         w.delegate = self
 
-        let title = NSTextField(wrappingLabelWithString:
-            L("Herhangi bir uygulamada metin ya da link seç, bu kısayola bas: Notlarım'a kaydedilir.",
-              "Select text or a link in any app and press this shortcut to save it to My Notes."))
-        title.font = .systemFont(ofSize: 12)
-        title.textColor = .secondaryLabelColor
-
-        recorder.onCapture = { [weak self] s in self?.apply(s) }
-        recorder.onCancel = { [weak self] in self?.refresh(); self?.recorder.recording = false }
-        recorder.onInvalid = { [weak self] in
-            self?.hint.stringValue = L("En az bir değiştirici tuş (⌃ ⌥ ⌘) ile birlikte bas.",
-                                       "Include at least one modifier key (⌃ ⌥ ⌘).")
-        }
-
-        hint.font = .systemFont(ofSize: 11)
-        hint.textColor = .secondaryLabelColor
-        hint.alignment = .center
-
-        let change = NSButton(title: L("Değiştir", "Change"), target: self, action: #selector(changeTapped))
-        let reset = NSButton(title: L("Sıfırla (⌃⌥N)", "Reset (⌃⌥N)"), target: self, action: #selector(resetTapped))
-        toggleBtn.target = self
-        toggleBtn.action = #selector(toggleTapped)
-        let done = NSButton(title: L("Tamam", "Done"), target: self, action: #selector(doneTapped))
-        done.keyEquivalent = "\r"
-        for b in [change, reset, toggleBtn, done] { b.bezelStyle = .rounded }
-
-        let row = NSStackView(views: [change, reset, toggleBtn])
-        row.spacing = 8
-        let stack = NSStackView(views: [title, recorder, hint, row, done])
+        let stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .centerX
-        stack.spacing = 10
+        stack.spacing = 8
         stack.edgeInsets = NSEdgeInsets(top: 16, left: 20, bottom: 16, right: 20)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
+        for a in QuickCapture.Action.allCases {
+            let r = Row(a)
+            rows.append(r)
+
+            let title = NSTextField(labelWithString: a.title)
+            title.font = .systemFont(ofSize: 13, weight: .semibold)
+            let detail = NSTextField(wrappingLabelWithString: a.detail)
+            detail.font = .systemFont(ofSize: 11)
+            detail.textColor = .secondaryLabelColor
+
+            r.recorder.translatesAutoresizingMaskIntoConstraints = false
+            r.recorder.onActivate = { [weak self, weak r] in if let r { self?.startRecording(r) } }
+            r.recorder.onCapture = { [weak self, weak r] s in if let r { self?.apply(s, to: r) } }
+            r.recorder.onCancel = { [weak self, weak r] in if let r { self?.refresh(r) } }
+            r.recorder.onInvalid = { [weak r] in
+                r?.hint.stringValue = L("En az bir değiştirici tuş (⌃ ⌥ ⌘) ile birlikte bas.",
+                                        "Include at least one modifier key (⌃ ⌥ ⌘).")
+            }
+            r.hint.font = .systemFont(ofSize: 11)
+            r.hint.textColor = .secondaryLabelColor
+            r.hint.alignment = .center
+
+            let change = NSButton(title: L("Değiştir", "Change"), target: self, action: #selector(changeTapped(_:)))
+            let reset = NSButton(title: L("Sıfırla", "Reset"), target: self, action: #selector(resetTapped(_:)))
+            r.toggleBtn.target = self
+            r.toggleBtn.action = #selector(toggleTapped(_:))
+            for b in [change, reset, r.toggleBtn] { b.bezelStyle = .rounded; b.tag = Int(a.rawValue) }
+            let btns = NSStackView(views: [change, reset, r.toggleBtn])
+            btns.spacing = 8
+
+            for v in [title, detail, r.recorder, r.hint, btns] { stack.addArrangedSubview(v) }
+            NSLayoutConstraint.activate([
+                detail.widthAnchor.constraint(equalToConstant: 300),
+                r.recorder.widthAnchor.constraint(equalToConstant: 300),
+                r.recorder.heightAnchor.constraint(equalToConstant: 48),
+                r.hint.widthAnchor.constraint(equalToConstant: 300)
+            ])
+            stack.setCustomSpacing(18, after: btns)
+        }
+
+        let done = NSButton(title: L("Tamam", "Done"), target: self, action: #selector(doneTapped))
+        done.bezelStyle = .rounded
+        done.keyEquivalent = "\r"
+        stack.addArrangedSubview(done)
+
         let content = NSView()
         content.addSubview(stack)
-        recorder.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: content.topAnchor),
             stack.bottomAnchor.constraint(equalTo: content.bottomAnchor),
             stack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            title.widthAnchor.constraint(equalToConstant: 300),
-            recorder.widthAnchor.constraint(equalToConstant: 300),
-            recorder.heightAnchor.constraint(equalToConstant: 56),
-            hint.widthAnchor.constraint(equalToConstant: 300)
+            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor)
         ])
         w.contentView = content
         window = w
@@ -132,58 +153,67 @@ final class ShortcutSettings: NSObject, NSWindowDelegate {
 
     // MARK: Durum
 
-    private func refresh() {
-        recorder.recording = false
-        recorder.text = QuickCapture.enabled ? QuickCapture.shortcut.display : L("Kapalı", "Off")
-        toggleBtn.title = QuickCapture.enabled ? L("Kapat", "Turn Off") : L("Aç", "Turn On")
-        hint.stringValue = ""
+    private func refresh(_ r: Row) {
+        r.recorder.recording = false
+        r.recorder.text = QuickCapture.display(r.action)
+        r.toggleBtn.title = QuickCapture.enabled(r.action) ? L("Kapat", "Turn Off") : L("Aç", "Turn On")
+        r.hint.stringValue = ""
     }
 
-    private func startRecording() {
-        recorder.recording = true
-        recorder.text = L("Yeni kısayola bas…  (Esc: vazgeç)", "Press new shortcut…  (Esc: cancel)")
-        hint.stringValue = ""
-        window?.makeFirstResponder(recorder)
+    private func startRecording(_ r: Row) {
+        rows.forEach { if $0 !== r { refresh($0) } }
+        r.recorder.recording = true
+        r.recorder.text = L("Yeni kısayola bas…  (Esc: vazgeç)", "Press new shortcut…  (Esc: cancel)")
+        r.hint.stringValue = ""
+        window?.makeFirstResponder(r.recorder)
     }
 
-    private func apply(_ s: Shortcut) {
-        QuickCapture.shortcut = s
-        QuickCapture.enabled = true
-        refresh()
-        if !QuickCapture.apply() {
-            // Başka bir uygulama (ya da sistem) bu kombinasyonu zaten kullanıyor.
-            hint.stringValue = L("Bu kısayol başka bir uygulamada kullanımda olabilir; başka bir tane dene.",
-                                 "This shortcut may be taken by another app; try a different one.")
-            QuickCapture.suspend()
-        } else {
-            QuickCapture.suspend()      // pencere açıkken kapalı kalsın; kapanınca yeniden etkinleşir
-            hint.stringValue = L("Kaydedildi.", "Saved.")
+    private func apply(_ s: Shortcut, to r: Row) {
+        // Diğer kısayolla aynı kombinasyon olmasın.
+        if let other = rows.first(where: { $0 !== r && QuickCapture.enabled($0.action) && QuickCapture.shortcut($0.action) == s }) {
+            r.hint.stringValue = L("Bu kombinasyon “\(other.action.title)” için kullanılıyor.",
+                                   "This combination is used by “\(other.action.title)”.")
+            return
         }
+        QuickCapture.setShortcut(s, for: r.action)
+        QuickCapture.setEnabled(true, for: r.action)
+        refresh(r)
+        r.hint.stringValue = L("Kaydedildi.", "Saved.")
     }
 
     // MARK: Düğmeler
 
-    @objc private func changeTapped() { startRecording() }
+    @objc private func changeTapped(_ sender: NSButton) { if let r = row(for: sender.tag) { startRecording(r) } }
 
-    @objc private func resetTapped() {
-        QuickCapture.shortcut = .default
-        QuickCapture.enabled = true
-        refresh()
-        hint.stringValue = L("Varsayılana döndü.", "Reset to default.")
+    @objc private func resetTapped(_ sender: NSButton) {
+        guard let r = row(for: sender.tag) else { return }
+        let d = r.action.defaultShortcut
+        if let other = rows.first(where: { $0 !== r && QuickCapture.enabled($0.action) && QuickCapture.shortcut($0.action) == d }) {
+            r.hint.stringValue = L("Varsayılan, “\(other.action.title)” tarafından kullanılıyor.",
+                                   "Default is used by “\(other.action.title)”.")
+            return
+        }
+        QuickCapture.setShortcut(d, for: r.action)
+        QuickCapture.setEnabled(true, for: r.action)
+        refresh(r)
+        r.hint.stringValue = L("Varsayılana döndü.", "Reset to default.")
     }
 
-    @objc private func toggleTapped() {
-        QuickCapture.enabled.toggle()
-        refresh()
+    @objc private func toggleTapped(_ sender: NSButton) {
+        guard let r = row(for: sender.tag) else { return }
+        QuickCapture.setEnabled(!QuickCapture.enabled(r.action), for: r.action)
+        refresh(r)
     }
 
     @objc private func doneTapped() { window?.close() }
 
-    /// Pencere kapanınca kısayolu (ayara göre) yeniden etkinleştirir.
+    /// Pencere kapanınca kısayolları (ayarlara göre) yeniden etkinleştirir.
     func windowWillClose(_ notification: Notification) {
-        if !QuickCapture.apply() {
-            HUD.show(L("Kısayol kaydedilemedi; başka uygulama kullanıyor olabilir",
-                       "Couldn't register shortcut; another app may be using it"))
+        rows.forEach { refresh($0) }
+        let failed = QuickCapture.apply()
+        if !failed.isEmpty {
+            HUD.show(L("Kaydedilemeyen kısayol: ", "Couldn't register: ") + failed.map { $0.title }.joined(separator: ", ")
+                     + L(" (başka uygulama kullanıyor olabilir)", " (another app may be using it)"))
         }
     }
 }
